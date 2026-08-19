@@ -1,0 +1,266 @@
+import './style.css'
+import { supabase, supabaseConfigured } from './lib/supabase.js'
+import { getSessionId } from './lib/session.js'
+import { getPosition, coarsen } from './lib/geolocation.js'
+import { getScenario, setScenario, mockLiveOffers, mockFenceCheck } from './lib/mock.js'
+
+const app = document.getElementById('app')
+
+// ---------- data ----------
+
+async function fetchLiveOffers(lat, lng, accuracyM, locale) {
+  if (!supabaseConfigured) return mockLiveOffers()
+  const { data, error } = await supabase.rpc('get_live_offers', {
+    p_lat: lat,
+    p_lng: lng,
+    p_accuracy_m: accuracyM ? Math.round(accuracyM) : null,
+    p_locale: locale,
+  })
+  if (error) {
+    console.error('get_live_offers failed', error)
+    return []
+  }
+  return data ?? []
+}
+
+async function fetchFenceCheck(lat, lng, accuracyM) {
+  if (!supabaseConfigured) return mockFenceCheck()
+  const { data, error } = await supabase.rpc('check_fence', {
+    p_lat: lat,
+    p_lng: lng,
+    p_accuracy_m: accuracyM ? Math.round(accuracyM) : null,
+  })
+  if (error) {
+    console.error('check_fence failed', error)
+    return null
+  }
+  return data?.[0] ?? null
+}
+
+async function logImpression({
+  campaignId = null,
+  offerId = null,
+  venueId = null,
+  eventType,
+  insideFence,
+  distanceM = null,
+  accuracyM = null,
+  lat = null,
+  lng = null,
+}) {
+  const row = {
+    campaign_id: campaignId,
+    offer_id: offerId,
+    venue_id: venueId,
+    session_id: getSessionId(),
+    inside_fence: insideFence,
+    distance_m: distanceM,
+    accuracy_m: accuracyM ? Math.round(accuracyM) : null,
+    coarse_lat: lat != null ? coarsen(lat) : null,
+    coarse_lng: lng != null ? coarsen(lng) : null,
+    event_type: eventType,
+    user_agent: navigator.userAgent,
+  }
+
+  if (!supabaseConfigured) {
+    console.info('[mock impression]', row)
+    return
+  }
+  const { error } = await supabase.from('impressions').insert(row)
+  if (error) console.error('impression insert failed', error)
+}
+
+// ---------- rendering ----------
+
+function shell(bodyHtml) {
+  app.innerHTML = `
+    <div class="min-h-dvh flex flex-col">
+      ${devBannerHtml()}
+      <main class="flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
+        ${bodyHtml}
+      </main>
+    </div>
+  `
+  wireDevBanner()
+}
+
+function devBannerHtml() {
+  if (supabaseConfigured) return ''
+  const scenario = getScenario()
+  const btn = (id, label) => `
+    <button data-scenario="${id}"
+      class="px-3 py-1 rounded-full text-xs font-semibold border ${
+        scenario === id
+          ? 'bg-hot border-hot text-white'
+          : 'border-white/20 text-white/60 hover:border-white/40'
+      }">${label}</button>
+  `
+  return `
+    <div class="bg-hot-dim/40 border-b border-hot/30 px-4 py-2 flex flex-wrap items-center gap-2 text-xs">
+      <span class="font-bold uppercase tracking-wide text-hot">Dev mock</span>
+      <span class="text-white/50">no Supabase configured — simulating:</span>
+      ${btn('offers', 'Offers live')}
+      ${btn('empty', 'No offers')}
+      ${btn('outside', 'Outside fence')}
+    </div>
+  `
+}
+
+function wireDevBanner() {
+  document.querySelectorAll('[data-scenario]').forEach((el) => {
+    el.addEventListener('click', () => {
+      setScenario(el.dataset.scenario)
+      run()
+    })
+  })
+}
+
+function renderLoading() {
+  shell(`
+    <div class="animate-pulse w-10 h-10 rounded-full bg-hot"></div>
+    <p class="text-lg text-white/70">Checking your location…</p>
+  `)
+}
+
+function renderOffers(offers) {
+  const venueName = offers[0]?.venue_name ?? 'this venue'
+  const cards = offers
+    .map(
+      (o) => `
+      <article class="w-full max-w-md bg-surface rounded-2xl p-5 text-left border border-white/10">
+        <p class="text-xs uppercase tracking-wide text-white/40">${escapeHtml(o.vendor_name)}</p>
+        <h2 class="text-2xl font-extrabold mt-1">${escapeHtml(o.headline)}</h2>
+        ${o.deal_text ? `<p class="text-hot font-bold text-lg mt-1">${escapeHtml(o.deal_text)}</p>` : ''}
+        ${o.description ? `<p class="text-white/60 text-sm mt-2">${escapeHtml(o.description)}</p>` : ''}
+        <p class="text-xs text-white/30 mt-4" data-ends-at="${o.ends_at}">Ends in …</p>
+      </article>
+    `
+    )
+    .join('')
+
+  shell(`
+    <p class="text-sm text-white/50">${escapeHtml(venueName)}</p>
+    <h1 class="text-3xl font-black">Deals live right now</h1>
+    <div class="w-full flex flex-col items-center gap-4">${cards}</div>
+  `)
+
+  startCountdowns()
+}
+
+function renderEmpty(venueName) {
+  shell(`
+    <h1 class="text-2xl font-bold">Nothing running right now</h1>
+    <p class="text-white/50 max-w-sm">${escapeHtml(venueName ?? 'this venue')} doesn't have an active deal at the moment. Check back once the game gets going.</p>
+  `)
+}
+
+function renderOutside() {
+  shell(`
+    <h1 class="text-2xl font-bold">You're not at a venue</h1>
+    <p class="text-white/50 max-w-sm">Deals unlock at the stadium. Head to the venue during a live event and reload this page.</p>
+  `)
+}
+
+function renderDenied(retry) {
+  shell(`
+    <h1 class="text-2xl font-bold">Location access needed</h1>
+    <p class="text-white/50 max-w-sm">We use your location only to check whether you're inside the venue right now — nothing is stored beyond that. It's not saved to an account or shared.</p>
+    <button id="retry-btn" class="px-6 py-3 rounded-full bg-hot font-bold">Try again</button>
+  `)
+  document.getElementById('retry-btn')?.addEventListener('click', retry)
+}
+
+function startCountdowns() {
+  const els = [...document.querySelectorAll('[data-ends-at]')]
+  if (els.length === 0) return
+  const tick = () => {
+    const now = Date.now()
+    let anyLive = false
+    for (const el of els) {
+      const endsAt = new Date(el.dataset.endsAt).getTime()
+      const diffMs = endsAt - now
+      if (diffMs <= 0) {
+        el.textContent = 'Ended'
+        continue
+      }
+      anyLive = true
+      const mins = Math.floor(diffMs / 60000)
+      const secs = Math.floor((diffMs % 60000) / 1000)
+      el.textContent = mins > 0 ? `Ends in ${mins}m ${secs}s` : `Ends in ${secs}s`
+    }
+    if (anyLive) requestAnimationFrame(() => setTimeout(tick, 1000))
+  }
+  tick()
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div')
+  div.textContent = str ?? ''
+  return div.innerHTML
+}
+
+// ---------- flow ----------
+
+async function run() {
+  renderLoading()
+
+  let position
+  try {
+    position = await getPosition()
+  } catch (err) {
+    renderDenied(run)
+    logImpression({ eventType: 'denied', insideFence: false })
+    return
+  }
+
+  const { latitude, longitude, accuracy } = position.coords
+  const locale = navigator.language
+
+  const [offers, fence] = await Promise.all([
+    fetchLiveOffers(latitude, longitude, accuracy, locale),
+    fetchFenceCheck(latitude, longitude, accuracy),
+  ])
+
+  if (offers.length > 0) {
+    renderOffers(offers)
+    for (const o of offers) {
+      logImpression({
+        campaignId: o.campaign_id,
+        offerId: o.offer_id,
+        venueId: o.venue_id,
+        eventType: 'view',
+        insideFence: true,
+        distanceM: o.distance_m,
+        accuracyM: accuracy,
+        lat: latitude,
+        lng: longitude,
+      })
+    }
+    return
+  }
+
+  if (fence) {
+    renderEmpty(fence.venue_name)
+    logImpression({
+      venueId: fence.venue_id,
+      eventType: 'view',
+      insideFence: true,
+      distanceM: fence.distance_m,
+      accuracyM: accuracy,
+      lat: latitude,
+      lng: longitude,
+    })
+    return
+  }
+
+  renderOutside()
+  logImpression({
+    eventType: 'outside',
+    insideFence: false,
+    accuracyM: accuracy,
+    lat: latitude,
+    lng: longitude,
+  })
+}
+
+run()
