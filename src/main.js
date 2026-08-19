@@ -122,7 +122,7 @@ function renderLoading() {
   `)
 }
 
-function renderOffers(offers) {
+function renderOffers(offers, geo) {
   const venueName = offers[0]?.venue_name ?? 'this venue'
   const cards = offers
     .map(
@@ -133,6 +133,12 @@ function renderOffers(offers) {
         ${o.deal_text ? `<p class="text-hot font-bold text-lg mt-1">${escapeHtml(o.deal_text)}</p>` : ''}
         ${o.description ? `<p class="text-white/60 text-sm mt-2">${escapeHtml(o.description)}</p>` : ''}
         <p class="text-xs text-white/30 mt-4" data-ends-at="${o.ends_at}">Ends in …</p>
+        ${o.display_code ? `<div class="mt-4" data-code-slot="${o.offer_id}">
+          <button type="button" data-reveal="${o.offer_id}"
+            class="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold tracking-wide transition">
+            Tap to reveal code
+          </button>
+        </div>` : ''}
       </article>
     `
     )
@@ -145,6 +151,36 @@ function renderOffers(offers) {
   `)
 
   startCountdowns()
+  wireReveal(offers, geo)
+}
+
+function wireReveal(offers, geo) {
+  const byId = new Map(offers.map((o) => [String(o.offer_id), o]))
+  document.querySelectorAll('[data-reveal]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const o = byId.get(btn.dataset.reveal)
+      if (!o) return
+      const slot = document.querySelector(`[data-code-slot="${btn.dataset.reveal}"]`)
+      if (!slot) return
+      slot.innerHTML = `
+        <div class="rounded-xl bg-hot px-4 py-5 text-center animate-reveal">
+          <p class="text-xs uppercase tracking-widest text-white/80">Show this at the register</p>
+          <p class="text-4xl font-black tracking-widest mt-1">${escapeHtml(o.display_code)}</p>
+        </div>
+      `
+      logImpression({
+        campaignId: o.campaign_id,
+        offerId: o.offer_id,
+        venueId: o.venue_id,
+        eventType: 'unlock',
+        insideFence: true,
+        distanceM: o.distance_m,
+        accuracyM: geo?.accuracy,
+        lat: geo?.latitude,
+        lng: geo?.longitude,
+      })
+    }, { once: true })
+  })
 }
 
 function renderEmpty(venueName) {
@@ -222,7 +258,7 @@ async function run() {
   ])
 
   if (offers.length > 0) {
-    renderOffers(offers)
+    renderOffers(offers, { latitude, longitude, accuracy })
     for (const o of offers) {
       logImpression({
         campaignId: o.campaign_id,
