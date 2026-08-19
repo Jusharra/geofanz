@@ -20,46 +20,55 @@ export async function renderOffersSection(container) {
       <div>
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-bold">Offers</h2>
-          <button id="offer-new" class="text-sm px-3 py-1.5 rounded-lg bg-hot font-semibold">+ New offer</button>
+          <button id="offer-new" class="btn-primary text-sm py-1.5 px-3">+ New offer</button>
         </div>
         <div class="space-y-2" id="offer-list"></div>
       </div>
-      <div class="bg-surface rounded-xl border border-white/10 p-4">
-        <form id="offer-form" class="space-y-3">
-          <label class="text-sm block">Vendor
-            <select name="vendor_id" required class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2">
+      <div class="card p-4">
+        <form id="offer-form" class="space-y-4">
+          <div>
+            <label class="field-label" for="vendor_id">Vendor</label>
+            <select id="vendor_id" name="vendor_id" required class="field-select">
               ${vendors.map((v) => `<option value="${v.id}">${escapeHtml(v.dba_name)}</option>`).join('')}
             </select>
-          </label>
-          <label class="text-sm block">Headline
-            <input name="headline" required class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-          </label>
-          <label class="text-sm block">Deal text
-            <input name="deal_text" placeholder="2 for $20, $5 off…" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-          </label>
-          <label class="text-sm block">Description
-            <textarea name="description" rows="2" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2"></textarea>
-          </label>
+          </div>
+          <div>
+            <label class="field-label" for="headline">Headline</label>
+            <input id="headline" name="headline" required class="field-input" />
+          </div>
+          <div>
+            <label class="field-label" for="deal_text">Deal text</label>
+            <input id="deal_text" name="deal_text" placeholder="2 for $20, $5 off…" class="field-input" />
+          </div>
+          <div>
+            <label class="field-label" for="description">Description</label>
+            <textarea id="description" name="description" rows="2" class="field-textarea"></textarea>
+          </div>
           <p id="trademark-warning" class="hidden text-xs text-amber-400 bg-amber-950/40 border border-amber-800/50 rounded-lg px-3 py-2"></p>
           <div class="grid grid-cols-2 gap-3">
-            <label class="text-sm">Offer type
-              <select name="offer_type" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2">
+            <div>
+              <label class="field-label" for="offer_type">Offer type</label>
+              <select id="offer_type" name="offer_type" class="field-select">
                 ${OFFER_TYPES.map((t) => `<option value="${t}">${t}</option>`).join('')}
               </select>
-            </label>
-            <label class="text-sm">Display code
-              <input name="display_code" placeholder="Shown at redemption" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-            </label>
+            </div>
+            <div>
+              <label class="field-label" for="display_code">Display code</label>
+              <input id="display_code" name="display_code" placeholder="Shown at redemption" class="field-input" />
+            </div>
           </div>
-          <label class="text-sm block">CTA URL
-            <input name="cta_url" type="url" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-          </label>
-          <label class="text-sm flex items-center gap-2">
-            <input type="checkbox" name="active" checked class="w-4 h-4" /> Active
+          <div>
+            <label class="field-label" for="cta_url">CTA URL</label>
+            <input id="cta_url" name="cta_url" type="url" class="field-input" />
+          </div>
+          <label class="switch">
+            <input type="checkbox" name="active" checked />
+            <span class="track"><span class="thumb"></span></span>
+            <span class="text-sm">Active</span>
           </label>
           <div class="flex gap-2 pt-2">
-            <button type="submit" class="px-4 py-2 rounded-lg bg-hot font-bold">Save offer</button>
-            <button type="button" id="offer-cancel" class="px-4 py-2 rounded-lg bg-white/10">Cancel</button>
+            <button type="submit" class="btn-primary">Save offer</button>
+            <button type="button" id="offer-cancel" class="btn-secondary">Cancel</button>
           </div>
           <p id="offer-error" class="text-sm text-red-400"></p>
         </form>
@@ -79,14 +88,14 @@ function renderList(container, offers) {
   list.innerHTML = offers
     .map(
       (o) => `
-      <div class="flex items-center justify-between bg-surface rounded-lg border border-white/10 px-3 py-2">
+      <div class="flex items-center justify-between card px-3 py-2.5">
         <div>
           <p class="font-semibold text-sm">${escapeHtml(o.headline)} ${o.active ? '' : '<span class="text-white/30">(inactive)</span>'}</p>
           <p class="text-xs text-white/40">${escapeHtml(o.vendors?.dba_name ?? '—')} · ${o.offer_type}</p>
         </div>
         <div class="flex gap-2 shrink-0">
-          <button data-edit="${o.id}" class="text-xs px-2 py-1 rounded bg-white/10">Edit</button>
-          <button data-delete="${o.id}" class="text-xs px-2 py-1 rounded bg-red-900/50">Delete</button>
+          <button data-edit="${o.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Edit</button>
+          <button data-delete="${o.id}" class="text-xs px-2.5 py-1 rounded-lg bg-red-950/60 text-red-300 hover:bg-red-900/60 transition-colors">Delete</button>
         </div>
       </div>
     `

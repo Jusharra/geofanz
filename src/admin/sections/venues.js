@@ -7,8 +7,17 @@ const VENUE_TYPES = ['stadium', 'arena', 'airport', 'venue', 'test']
 
 let map, marker, circle
 let editingId = null
+let distanceUnit = 'meters'
 
-export async function renderVenuesSection(container) {
+function formatDistance(meters) {
+  if (distanceUnit === 'feet') return `${Math.round(meters * 3.28084)}ft`
+  return `${meters}m`
+}
+
+export async function renderVenuesSection(container, user) {
+  // Internal re-renders (after save/delete) call this without `user` --
+  // keep whatever preference was already resolved instead of resetting it.
+  if (user) distanceUnit = user.user_metadata?.distance_unit === 'feet' ? 'feet' : 'meters'
   const venues = await listVenues()
 
   if (map) {
@@ -21,57 +30,65 @@ export async function renderVenuesSection(container) {
       <div>
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-bold">Venues</h2>
-          <button id="venue-new" class="text-sm px-3 py-1.5 rounded-lg bg-hot font-semibold">+ New venue</button>
+          <button id="venue-new" class="btn-primary text-sm py-1.5 px-3">+ New venue</button>
         </div>
         <div class="space-y-2" id="venue-list"></div>
       </div>
-      <div class="bg-surface rounded-xl border border-white/10 p-4">
-        <form id="venue-form" class="space-y-3">
+      <div class="card p-4">
+        <form id="venue-form" class="space-y-4">
           <input type="hidden" name="id" />
           <div class="grid grid-cols-2 gap-3">
-            <label class="text-sm col-span-2">Name
-              <input name="name" required class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-            </label>
-            <label class="text-sm col-span-2">Description
-              <input name="description" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-            </label>
-            <label class="text-sm">City
-              <input name="city" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-            </label>
-            <label class="text-sm">State
-              <input name="state_province" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-            </label>
-            <label class="text-sm">Type
-              <select name="venue_type" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2">
+            <div class="col-span-2">
+              <label class="field-label" for="v-name">Name</label>
+              <input id="v-name" name="name" required class="field-input" />
+            </div>
+            <div class="col-span-2">
+              <label class="field-label" for="v-description">Description</label>
+              <input id="v-description" name="description" class="field-input" />
+            </div>
+            <div>
+              <label class="field-label" for="v-city">City</label>
+              <input id="v-city" name="city" class="field-input" />
+            </div>
+            <div>
+              <label class="field-label" for="v-state">State</label>
+              <input id="v-state" name="state_province" class="field-input" />
+            </div>
+            <div>
+              <label class="field-label" for="venue_type">Type</label>
+              <select id="venue_type" name="venue_type" class="field-select">
                 ${VENUE_TYPES.map((t) => `<option value="${t}">${t}</option>`).join('')}
               </select>
-            </label>
-            <label class="text-sm flex items-center gap-2 mt-6">
-              <input type="checkbox" name="active" checked class="w-4 h-4" /> Active
+            </div>
+            <label class="switch mt-6">
+              <input type="checkbox" name="active" checked />
+              <span class="track"><span class="thumb"></span></span>
+              <span class="text-sm">Active</span>
             </label>
           </div>
 
-          <div id="venue-map" class="w-full h-64 rounded-lg overflow-hidden border border-white/10"></div>
-          <p class="text-xs text-white/40">Click the map or drag the marker to set the venue's location.</p>
+          <div id="venue-map" class="w-full h-64 rounded-xl overflow-hidden border border-white/10"></div>
+          <p class="field-hint -mt-2">Click the map or drag the marker to set the venue's location.</p>
 
           <div class="grid grid-cols-2 gap-3">
-            <label class="text-sm">Latitude
-              <input name="latitude" required type="number" step="any" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-            </label>
-            <label class="text-sm">Longitude
-              <input name="longitude" required type="number" step="any" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-            </label>
+            <div>
+              <label class="field-label" for="v-lat">Latitude</label>
+              <input id="v-lat" name="latitude" required type="number" step="any" class="field-input" />
+            </div>
+            <div>
+              <label class="field-label" for="v-lng">Longitude</label>
+              <input id="v-lng" name="longitude" required type="number" step="any" class="field-input" />
+            </div>
           </div>
 
-          <label class="text-sm block">
-            Radius: <span id="radius-value" class="font-bold text-hot">800</span>m
-            <input name="radius_meters" type="range" min="25" max="2000" step="25" value="800"
-              class="mt-1 w-full" />
-          </label>
+          <div>
+            <label class="field-label" for="radius_meters">Radius: <span id="radius-value" class="text-hot font-bold normal-case">${formatDistance(800)}</span></label>
+            <input id="radius_meters" name="radius_meters" type="range" min="25" max="2000" step="25" value="800" class="field-range" />
+          </div>
 
           <div class="flex gap-2 pt-2">
-            <button type="submit" class="px-4 py-2 rounded-lg bg-hot font-bold">Save venue</button>
-            <button type="button" id="venue-cancel" class="px-4 py-2 rounded-lg bg-white/10">Cancel</button>
+            <button type="submit" class="btn-primary">Save venue</button>
+            <button type="button" id="venue-cancel" class="btn-secondary">Cancel</button>
           </div>
           <p id="venue-error" class="text-sm text-red-400"></p>
         </form>
@@ -93,14 +110,14 @@ function renderVenueList(container, venues) {
   list.innerHTML = venues
     .map(
       (v) => `
-      <div class="flex items-center justify-between bg-surface rounded-lg border border-white/10 px-3 py-2">
+      <div class="flex items-center justify-between card px-3 py-2.5">
         <div>
           <p class="font-semibold text-sm">${escapeHtml(v.name)} ${v.active ? '' : '<span class="text-white/30">(inactive)</span>'}</p>
-          <p class="text-xs text-white/40">${v.venue_type} · ${v.radius_meters}m · ${escapeHtml(v.city ?? '')}</p>
+          <p class="text-xs text-white/40">${v.venue_type} · ${formatDistance(v.radius_meters)} · ${escapeHtml(v.city ?? '')}</p>
         </div>
         <div class="flex gap-2 shrink-0">
-          <button data-edit="${v.id}" class="text-xs px-2 py-1 rounded bg-white/10">Edit</button>
-          <button data-delete="${v.id}" class="text-xs px-2 py-1 rounded bg-red-900/50">Delete</button>
+          <button data-edit="${v.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Edit</button>
+          <button data-delete="${v.id}" class="text-xs px-2.5 py-1 rounded-lg bg-red-950/60 text-red-300 hover:bg-red-900/60 transition-colors">Delete</button>
         </div>
       </div>
     `
@@ -159,7 +176,7 @@ function wireForm(container) {
   const radiusInput = form.querySelector('[name=radius_meters]')
   const radiusValue = container.querySelector('#radius-value')
   radiusInput.addEventListener('input', () => {
-    radiusValue.textContent = radiusInput.value
+    radiusValue.textContent = formatDistance(Number(radiusInput.value))
     circle.setRadius(Number(radiusInput.value))
   })
 
@@ -216,7 +233,7 @@ function fillForm(container, venue) {
   form.querySelector('[name=latitude]').value = venue.latitude
   form.querySelector('[name=longitude]').value = venue.longitude
   form.querySelector('[name=radius_meters]').value = venue.radius_meters
-  container.querySelector('#radius-value').textContent = venue.radius_meters
+  container.querySelector('#radius-value').textContent = formatDistance(venue.radius_meters)
 
   marker.setLatLng([venue.latitude, venue.longitude])
   circle.setLatLng([venue.latitude, venue.longitude])
@@ -237,7 +254,7 @@ function resetForm(container) {
   const form = container.querySelector('#venue-form')
   form.reset()
   form.querySelector('[name=radius_meters]').value = 800
-  container.querySelector('#radius-value').textContent = '800'
+  container.querySelector('#radius-value').textContent = formatDistance(800)
   if (marker) {
     marker.setLatLng([FRESNO.lat, FRESNO.lng])
     circle.setLatLng([FRESNO.lat, FRESNO.lng])

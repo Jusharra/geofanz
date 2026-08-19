@@ -29,6 +29,29 @@ export async function updatePassword(newPassword) {
   if (error) throw error
 }
 
+export async function getCurrentUser() {
+  const { data, error } = await supabase.auth.getUser()
+  if (error) throw error
+  return data.user
+}
+
+// Supabase sends a confirmation email to the new address before the change
+// takes effect -- the old email keeps working until it's confirmed.
+export async function updateEmail(newEmail) {
+  const { error } = await supabase.auth.updateUser({ email: newEmail })
+  if (error) throw error
+}
+
+// Merges into user_metadata rather than replacing it, so updating one
+// field (e.g. avatar_url) never clobbers the others (username, prefs).
+export async function updateProfile(partial) {
+  const user = await getCurrentUser()
+  const { error } = await supabase.auth.updateUser({
+    data: { ...user.user_metadata, ...partial },
+  })
+  if (error) throw error
+}
+
 // Passes the event through (not just the session) so callers can tell a
 // normal sign-in apart from PASSWORD_RECOVERY, which needs its own screen
 // instead of dropping straight into the dashboard.

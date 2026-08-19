@@ -11,43 +11,51 @@ export async function renderVendorsSection(container) {
       <div>
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-bold">Vendors</h2>
-          <button id="vendor-new" class="text-sm px-3 py-1.5 rounded-lg bg-hot font-semibold">+ New vendor</button>
+          <button id="vendor-new" class="btn-primary text-sm py-1.5 px-3">+ New vendor</button>
         </div>
         <div class="space-y-2" id="vendor-list"></div>
       </div>
-      <div class="bg-surface rounded-xl border border-white/10 p-4">
-        <form id="vendor-form" class="space-y-3">
-          <label class="text-sm block">DBA name
-            <input name="dba_name" required class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-          </label>
-          <label class="text-sm block">Owner name
-            <input name="owner_name" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-          </label>
-          <div class="grid grid-cols-2 gap-3">
-            <label class="text-sm">Email
-              <input name="email" type="email" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-            </label>
-            <label class="text-sm">Phone
-              <input name="phone" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-            </label>
+      <div class="card p-4">
+        <form id="vendor-form" class="space-y-4">
+          <div>
+            <label class="field-label" for="dba_name">DBA name</label>
+            <input id="dba_name" name="dba_name" required class="field-input" />
           </div>
-          <label class="text-sm block">City
-            <input name="city" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-          </label>
-          <label class="text-sm block">Billing status
-            <select name="billing_status" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2">
-              <option value="trial">trial</option>
-              <option value="active">active</option>
-              <option value="past_due">past_due</option>
-              <option value="canceled">canceled</option>
+          <div>
+            <label class="field-label" for="owner_name">Owner name</label>
+            <input id="owner_name" name="owner_name" class="field-input" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="field-label" for="v-email">Email</label>
+              <input id="v-email" name="email" type="email" class="field-input" />
+            </div>
+            <div>
+              <label class="field-label" for="v-phone">Phone</label>
+              <input id="v-phone" name="phone" class="field-input" />
+            </div>
+          </div>
+          <div>
+            <label class="field-label" for="v-city">City</label>
+            <input id="v-city" name="city" class="field-input" />
+          </div>
+          <div>
+            <label class="field-label" for="billing_status">Billing status</label>
+            <select id="billing_status" name="billing_status" class="field-select">
+              <option value="trial">Trial</option>
+              <option value="active">Active</option>
+              <option value="past_due">Past due</option>
+              <option value="canceled">Canceled</option>
             </select>
-          </label>
-          <label class="text-sm flex items-center gap-2">
-            <input type="checkbox" name="active" checked class="w-4 h-4" /> Active
+          </div>
+          <label class="switch">
+            <input type="checkbox" name="active" checked />
+            <span class="track"><span class="thumb"></span></span>
+            <span class="text-sm">Active</span>
           </label>
           <div class="flex gap-2 pt-2">
-            <button type="submit" class="px-4 py-2 rounded-lg bg-hot font-bold">Save vendor</button>
-            <button type="button" id="vendor-cancel" class="px-4 py-2 rounded-lg bg-white/10">Cancel</button>
+            <button type="submit" class="btn-primary">Save vendor</button>
+            <button type="button" id="vendor-cancel" class="btn-secondary">Cancel</button>
           </div>
           <p id="vendor-error" class="text-sm text-red-400"></p>
         </form>
@@ -67,14 +75,14 @@ function renderList(container, vendors) {
   list.innerHTML = vendors
     .map(
       (v) => `
-      <div class="flex items-center justify-between bg-surface rounded-lg border border-white/10 px-3 py-2">
+      <div class="flex items-center justify-between card px-3 py-2.5">
         <div>
           <p class="font-semibold text-sm">${escapeHtml(v.dba_name)} ${v.active ? '' : '<span class="text-white/30">(inactive)</span>'}</p>
           <p class="text-xs text-white/40">${v.billing_status} · ${escapeHtml(v.city ?? '')}</p>
         </div>
         <div class="flex gap-2 shrink-0">
-          <button data-edit="${v.id}" class="text-xs px-2 py-1 rounded bg-white/10">Edit</button>
-          <button data-delete="${v.id}" class="text-xs px-2 py-1 rounded bg-red-900/50">Delete</button>
+          <button data-edit="${v.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Edit</button>
+          <button data-delete="${v.id}" class="text-xs px-2.5 py-1 rounded-lg bg-red-950/60 text-red-300 hover:bg-red-900/60 transition-colors">Delete</button>
         </div>
       </div>
     `

@@ -13,7 +13,8 @@ html, body {
   height: 100%;
 }
 
-#app {
+#app,
+#admin-app {
   min-height: 100dvh;
 }
 
@@ -24,4 +25,195 @@ html, body {
 
 .animate-reveal {
   animation: reveal 240ms ease-out;
+}
+
+/* ---------- shared admin form components ---------- */
+
+.field-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 0.375rem;
+}
+
+.field-input,
+.field-select,
+.field-textarea {
+  width: 100%;
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: #f5f5f7;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.field-input::placeholder,
+.field-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.field-input:hover,
+.field-select:hover,
+.field-textarea:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.field-input:focus,
+.field-select:focus,
+.field-textarea:focus {
+  outline: none;
+  border-color: var(--color-hot);
+  box-shadow: 0 0 0 3px rgba(255, 61, 26, 0.25);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.field-input:disabled,
+.field-select:disabled,
+.field-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23ffffff99' stroke-width='1.6'%3E%3Cpath d='M6 8l4 4 4-4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2.25rem;
+  cursor: pointer;
+}
+
+.field-textarea {
+  resize: vertical;
+  min-height: 5rem;
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 0.375rem;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+}
+
+.btn-primary {
+  background: var(--color-hot);
+  font-weight: 700;
+  border-radius: 0.75rem;
+  padding: 0.625rem 1.25rem;
+  transition: filter 150ms ease, transform 150ms ease;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+  border-radius: 0.75rem;
+  padding: 0.625rem 1.25rem;
+  transition: background-color 150ms ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Custom toggle switch, used for every boolean field in the admin UI */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.switch .track {
+  position: relative;
+  width: 2.75rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.15);
+  transition: background-color 150ms ease;
+}
+
+.switch .thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: white;
+  transition: transform 150ms ease;
+}
+
+.switch input:checked + .track {
+  background: var(--color-hot);
+}
+
+.switch input:checked + .track .thumb {
+  transform: translateX(1.25rem);
+}
+
+.switch input:focus-visible + .track {
+  box-shadow: 0 0 0 3px rgba(255, 61, 26, 0.35);
+}
+
+.avatar-preview {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 9999px;
+  background: var(--color-hot-dim);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.25rem;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.field-range {
+  width: 100%;
+  accent-color: var(--color-hot);
+  height: 1.25rem;
+  cursor: pointer;
 }

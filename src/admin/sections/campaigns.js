@@ -18,40 +18,45 @@ export async function renderCampaignsSection(container) {
       <div>
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-bold">Campaigns</h2>
-          <button id="campaign-new" class="text-sm px-3 py-1.5 rounded-lg bg-hot font-semibold">+ New campaign</button>
+          <button id="campaign-new" class="btn-primary text-sm py-1.5 px-3">+ New campaign</button>
         </div>
         <div class="space-y-2" id="campaign-list"></div>
       </div>
-      <div class="bg-surface rounded-xl border border-white/10 p-4">
-        <form id="campaign-form" class="space-y-3">
-          <label class="text-sm block">Offer
-            <select name="offer_id" required class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2">
+      <div class="card p-4">
+        <form id="campaign-form" class="space-y-4">
+          <div>
+            <label class="field-label" for="offer_id">Offer</label>
+            <select id="offer_id" name="offer_id" required class="field-select">
               ${offers.map((o) => `<option value="${o.id}">${escapeHtml(o.headline)} — ${escapeHtml(o.vendors?.dba_name ?? '')}</option>`).join('')}
             </select>
-          </label>
-          <label class="text-sm block">Name
-            <input name="name" placeholder="Boise State — Oct 10" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-          </label>
-          <div class="grid grid-cols-2 gap-3">
-            <label class="text-sm">Starts
-              <input name="starts_at" type="datetime-local" required class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-            </label>
-            <label class="text-sm">Ends
-              <input name="ends_at" type="datetime-local" required class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-            </label>
           </div>
-          <label class="text-sm block">Price paid
-            <input name="price_paid" type="number" step="0.01" min="0" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" />
-          </label>
+          <div>
+            <label class="field-label" for="c-name">Name</label>
+            <input id="c-name" name="name" placeholder="Boise State — Oct 10" class="field-input" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="field-label" for="starts_at">Starts</label>
+              <input id="starts_at" name="starts_at" type="datetime-local" required class="field-input" />
+            </div>
+            <div>
+              <label class="field-label" for="ends_at">Ends</label>
+              <input id="ends_at" name="ends_at" type="datetime-local" required class="field-input" />
+            </div>
+          </div>
+          <div>
+            <label class="field-label" for="price_paid">Price paid</label>
+            <input id="price_paid" name="price_paid" type="number" step="0.01" min="0" class="field-input" />
+          </div>
 
-          <fieldset class="text-sm">
-            <legend class="mb-1">Venues</legend>
+          <fieldset>
+            <legend class="field-label">Venues</legend>
             <div id="campaign-venues" class="flex flex-wrap gap-2">
               ${venues
                 .map(
                   (v) => `
-                <label class="flex items-center gap-1.5 bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-xs cursor-pointer">
-                  <input type="checkbox" name="venue_ids" value="${v.id}" class="w-3.5 h-3.5" /> ${escapeHtml(v.name)}
+                <label class="flex items-center gap-1.5 bg-black/25 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs cursor-pointer transition-colors has-[:checked]:bg-hot/15 has-[:checked]:border-hot/50 has-[:checked]:text-white">
+                  <input type="checkbox" name="venue_ids" value="${v.id}" class="w-3.5 h-3.5 accent-hot" /> ${escapeHtml(v.name)}
                 </label>
               `
                 )
@@ -59,17 +64,21 @@ export async function renderCampaignsSection(container) {
             </div>
           </fieldset>
 
-          <div class="flex gap-4">
-            <label class="text-sm flex items-center gap-2">
-              <input type="checkbox" name="approved" class="w-4 h-4" /> Approved
+          <div class="flex gap-6">
+            <label class="switch">
+              <input type="checkbox" name="approved" />
+              <span class="track"><span class="thumb"></span></span>
+              <span class="text-sm">Approved</span>
             </label>
-            <label class="text-sm flex items-center gap-2">
-              <input type="checkbox" name="active" checked class="w-4 h-4" /> Active
+            <label class="switch">
+              <input type="checkbox" name="active" checked />
+              <span class="track"><span class="thumb"></span></span>
+              <span class="text-sm">Active</span>
             </label>
           </div>
           <div class="flex gap-2 pt-2">
-            <button type="submit" class="px-4 py-2 rounded-lg bg-hot font-bold">Save campaign</button>
-            <button type="button" id="campaign-cancel" class="px-4 py-2 rounded-lg bg-white/10">Cancel</button>
+            <button type="submit" class="btn-primary">Save campaign</button>
+            <button type="button" id="campaign-cancel" class="btn-secondary">Cancel</button>
           </div>
           <p id="campaign-error" class="text-sm text-red-400"></p>
         </form>
@@ -91,15 +100,15 @@ function renderList(container, campaigns) {
       const venueNames = (c.campaign_venues ?? []).map((cv) => cv.venues?.name).filter(Boolean).join(', ')
       const status = c.approved ? 'approved' : 'pending approval'
       return `
-      <div class="flex items-center justify-between bg-surface rounded-lg border border-white/10 px-3 py-2">
+      <div class="flex items-center justify-between card px-3 py-2.5">
         <div>
           <p class="font-semibold text-sm">${escapeHtml(c.name || c.offers?.headline || 'Untitled campaign')}</p>
           <p class="text-xs text-white/40">${escapeHtml(c.vendors?.dba_name ?? '')} · ${status} · ${venueNames || 'no venues'}</p>
           <p class="text-xs text-white/30">${formatRange(c.starts_at, c.ends_at)}</p>
         </div>
         <div class="flex gap-2 shrink-0">
-          <button data-edit="${c.id}" class="text-xs px-2 py-1 rounded bg-white/10">Edit</button>
-          <button data-delete="${c.id}" class="text-xs px-2 py-1 rounded bg-red-900/50">Delete</button>
+          <button data-edit="${c.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Edit</button>
+          <button data-delete="${c.id}" class="text-xs px-2.5 py-1 rounded-lg bg-red-950/60 text-red-300 hover:bg-red-900/60 transition-colors">Delete</button>
         </div>
       </div>
     `
