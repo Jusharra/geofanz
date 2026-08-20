@@ -15,7 +15,9 @@ import { renderOffersSection } from './sections/offers.js'
 import { renderCampaignsSection } from './sections/campaigns.js'
 import { renderReportsSection } from './sections/reports.js'
 import { renderSettingsSection } from './sections/settings.js'
+import { renderStaffSection } from './sections/staff.js'
 import { escapeHtml } from './lib/dom.js'
+import { getMyVendorUser } from '../lib/vendorUser.js'
 
 const root = document.getElementById('admin-app')
 
@@ -24,6 +26,7 @@ const TABS = [
   { id: 'vendors', label: 'Vendors', render: renderVendorsSection },
   { id: 'offers', label: 'Offers', render: renderOffersSection },
   { id: 'campaigns', label: 'Campaigns', render: renderCampaignsSection },
+  { id: 'staff', label: 'Staff', render: renderStaffSection },
   { id: 'reports', label: 'Reports', render: renderReportsSection },
   { id: 'settings', label: 'Settings', render: renderSettingsSection },
 ]
@@ -64,6 +67,17 @@ function boot() {
         user = await getCurrentUser()
       } catch {
         user = session.user
+      }
+
+      // Vendor-scoped accounts (created for the /scan app) never see the
+      // full admin dashboard, even if they somehow land on /admin -- this
+      // is the same shared-Supabase-session surface, so the check has to
+      // happen here too, not just in RLS.
+      const vendorUser = await getMyVendorUser(user.id).catch(() => null)
+      if (vendorUser) {
+        currentView = 'blocked'
+        renderBlocked()
+        return
       }
 
       if (!landingTabApplied) {
@@ -188,6 +202,19 @@ function renderResetPassword() {
       errorEl.textContent = err.message
     }
   })
+}
+
+function renderBlocked() {
+  root.innerHTML = `
+    <div class="min-h-dvh flex items-center justify-center px-6 text-center">
+      <div class="max-w-sm space-y-4">
+        <p class="text-white/60">This account is a vendor staff login — it doesn't have access to the admin dashboard.</p>
+        <a href="/scan" class="btn-primary inline-block">Go to the scanner</a>
+        <button id="blocked-sign-out" class="block mx-auto text-sm text-white/50 hover:text-white/80">Sign out</button>
+      </div>
+    </div>
+  `
+  document.getElementById('blocked-sign-out').addEventListener('click', () => signOut())
 }
 
 function renderDashboard(user) {

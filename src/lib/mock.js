@@ -28,6 +28,9 @@ export function mockLiveOffers() {
       headline: '2-for-1 pints',
       description: 'Show this screen at the tap.',
       deal_text: '2 for $12',
+      stakes: 'Game-day only — gone at final whistle.',
+      proof: '12 years on Blackstone.',
+      action: 'Show this at the red truck by Gate 3.',
       display_code: 'BULLDOG24',
       media_url: null,
       cta_url: null,
@@ -44,6 +47,9 @@ export function mockLiveOffers() {
       headline: '$5 off any combo',
       description: null,
       deal_text: '$5 off',
+      stakes: null,
+      proof: null,
+      action: null,
       display_code: 'HOTHAND5',
       media_url: null,
       cta_url: null,
@@ -59,5 +65,14 @@ export function mockFenceCheck() {
     venue_id: 'mock-venue-1',
     venue_name: "Valley Children's Stadium",
     distance_m: 260,
+  }
+}
+
+// Dev-mock stand-in for the issue_redemption_token RPC.
+export function mockIssueToken() {
+  return {
+    token: crypto.randomUUID(),
+    short_code: Math.random().toString(36).slice(2, 8).toUpperCase(),
+    expires_at: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
   }
 }

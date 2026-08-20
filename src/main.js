@@ -2,8 +2,9 @@ import './style.css'
 import { supabase, supabaseConfigured } from './lib/supabase.js'
 import { getSessionId } from './lib/session.js'
 import { getPosition, coarsen } from './lib/geolocation.js'
-import { getScenario, setScenario, mockLiveOffers, mockFenceCheck } from './lib/mock.js'
+import { getScenario, setScenario, mockLiveOffers, mockFenceCheck, mockIssueToken } from './lib/mock.js'
 import { toEmbedUrl } from './lib/video.js'
+import { tokenToDataUrl } from './lib/qr.js'
 
 const app = document.getElementById('app')
 
@@ -36,6 +37,18 @@ async function fetchFenceCheck(lat, lng, accuracyM) {
     return null
   }
   return data?.[0] ?? null
+}
+
+async function fetchIssueToken(campaignId, lat, lng) {
+  if (!supabaseConfigured) return mockIssueToken()
+  const { data, error } = await supabase.rpc('issue_redemption_token', {
+    p_campaign_id: campaignId,
+    p_session_id: getSessionId(),
+    p_lat: lat,
+    p_lng: lng,
+  })
+  if (error) throw error
+  return data?.[0]
 }
 
 async function logImpression({
@@ -134,7 +147,9 @@ function renderOffers(offers, geo) {
         <p class="text-xs uppercase tracking-wide text-white/40">${escapeHtml(o.vendor_name)}</p>
         <h2 class="text-2xl font-extrabold mt-1">${escapeHtml(o.headline)}</h2>
         ${o.deal_text ? `<p class="text-hot font-bold text-lg mt-1">${escapeHtml(o.deal_text)}</p>` : ''}
+        ${o.stakes ? `<p class="text-hot/90 text-sm font-semibold mt-1">${escapeHtml(o.stakes)}</p>` : ''}
         ${o.description ? `<p class="text-white/60 text-sm mt-2">${escapeHtml(o.description)}</p>` : ''}
+        ${o.proof ? `<p class="text-white/40 text-xs italic mt-2">${escapeHtml(o.proof)}</p>` : ''}
         ${o.media_url && !o.video_url ? `<img src="${escapeHtml(o.media_url)}" alt="" class="mt-4 w-full rounded-xl aspect-video object-cover" />` : ''}
         ${o.video_url ? `<div class="mt-4 rounded-xl overflow-hidden bg-black aspect-video" data-video-slot="${o.offer_id}">
           <button type="button" data-play-video="${o.offer_id}" class="relative w-full h-full block">
@@ -147,10 +162,11 @@ function renderOffers(offers, geo) {
           </button>
         </div>` : ''}
         <p class="text-xs text-white/30 mt-4" data-ends-at="${o.ends_at}">Ends in …</p>
-        ${o.display_code ? `<div class="mt-4" data-code-slot="${o.offer_id}">
-          <button type="button" data-reveal="${o.offer_id}"
+        ${!o.cta_url ? `<div class="mt-4" data-code-slot="${o.offer_id}">
+          ${o.action ? `<p class="text-white/50 text-xs mb-2">${escapeHtml(o.action)}</p>` : ''}
+          <button type="button" data-unlock="${o.offer_id}"
             class="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold tracking-wide transition">
-            Tap to reveal code
+            Tap to unlock
           </button>
         </div>` : ''}
         ${o.cta_url ? `<a href="${escapeHtml(o.cta_url)}" target="_blank" rel="noopener" data-cta="${o.offer_id}"
@@ -169,7 +185,7 @@ function renderOffers(offers, geo) {
   `)
 
   startCountdowns()
-  wireReveal(offers, geo)
+  wireUnlock(offers, geo)
   wireVideo(offers, geo)
   wireCta(offers, geo)
 }
@@ -254,33 +270,62 @@ function wireVideo(offers, geo) {
   })
 }
 
-function wireReveal(offers, geo) {
+// One-time redemption token, rendered as a QR the vendor scans at their
+// register. issue_redemption_token logs the 'unlock' impression itself
+// (atomically, server-side) -- no client-side logImpression call here,
+// unlike the old display_code reveal.
+function wireUnlock(offers, geo) {
   const byId = new Map(offers.map((o) => [String(o.offer_id), o]))
-  document.querySelectorAll('[data-reveal]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const o = byId.get(btn.dataset.reveal)
+  document.querySelectorAll('[data-unlock]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const o = byId.get(btn.dataset.unlock)
       if (!o) return
-      const slot = document.querySelector(`[data-code-slot="${btn.dataset.reveal}"]`)
+      const slot = document.querySelector(`[data-code-slot="${btn.dataset.unlock}"]`)
       if (!slot) return
+
+      btn.disabled = true
+      btn.textContent = 'Unlocking…'
+
+      let result
+      try {
+        result = await fetchIssueToken(o.campaign_id, geo?.latitude, geo?.longitude)
+      } catch (err) {
+        slot.innerHTML = `<p class="text-red-400 text-sm">${escapeHtml(err.message ?? 'Could not unlock this offer.')}</p>`
+        return
+      }
+      if (!result) {
+        slot.innerHTML = `<p class="text-red-400 text-sm">Could not unlock this offer.</p>`
+        return
+      }
+
+      const qrDataUrl = await tokenToDataUrl(result.token)
       slot.innerHTML = `
-        <div class="rounded-xl bg-hot px-4 py-5 text-center animate-reveal">
-          <p class="text-xs uppercase tracking-widest text-white/80">Show this at the register</p>
-          <p class="text-4xl font-black tracking-widest mt-1">${escapeHtml(o.display_code)}</p>
+        <div class="rounded-xl bg-white p-4 text-center animate-reveal">
+          <img src="${qrDataUrl}" alt="Redemption QR code" class="mx-auto w-full max-w-[220px]" />
+          <p class="text-black/40 text-xs uppercase tracking-widest mt-3">Show this at the register</p>
+          <p class="text-black font-black text-2xl tracking-widest mt-1">${escapeHtml(result.short_code)}</p>
+          <p class="text-black/40 text-xs mt-1" data-token-expires></p>
         </div>
       `
-      logImpression({
-        campaignId: o.campaign_id,
-        offerId: o.offer_id,
-        venueId: o.venue_id,
-        eventType: 'unlock',
-        insideFence: true,
-        distanceM: o.distance_m,
-        accuracyM: geo?.accuracy,
-        lat: geo?.latitude,
-        lng: geo?.longitude,
-      })
+      startSingleCountdown(slot.querySelector('[data-token-expires]'), result.expires_at)
     }, { once: true })
   })
+}
+
+function startSingleCountdown(el, iso) {
+  if (!el) return
+  const tick = () => {
+    const diffMs = new Date(iso).getTime() - Date.now()
+    if (diffMs <= 0) {
+      el.textContent = 'Expired'
+      return
+    }
+    const mins = Math.floor(diffMs / 60000)
+    const secs = Math.floor((diffMs % 60000) / 1000)
+    el.textContent = mins > 0 ? `Expires in ${mins}m ${secs}s` : `Expires in ${secs}s`
+    setTimeout(tick, 1000)
+  }
+  tick()
 }
 
 function renderEmpty(venueName) {

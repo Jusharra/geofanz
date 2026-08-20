@@ -140,3 +140,105 @@ They scanned a code. Show them the deals.
   business risk — worth a warning in the admin UI.
 - No SMS collection until a compliant platform and consent language exist.
 - Impression data is delivery proof, not a user profile. Keep it that way.
+
+---
+
+## The irresistible offer framework
+
+A vendor who writes "10% off" gets a 2% engagement rate and doesn't renew.
+Same slot, better offer — 15%, framed right — is the renewal. So the offer
+form doesn't ask for a headline, it asks for four required parts:
+
+- **Hook** — the specific thing, not the category. "Free birria taco with
+  any plate" beats "great Mexican food." (`offers.headline`, relabeled —
+  no separate column.)
+- **Stakes** — why now. It's game day and it ends at final whistle. That's
+  built into the product; make the vendor say it out loud. (`offers.stakes`)
+- **Proof** — one line of credibility. "12 years on Blackstone." A number
+  beats an adjective. (`offers.proof`)
+- **Action** — exactly what to do. "Show this code at the red truck by
+  Gate 3." (`offers.action`)
+
+And coach the offer itself: give away one thing free with a purchase,
+don't discount the whole ticket. A free drink costs the vendor 60¢ and
+reads as a gift. 15% off a $12 plate costs $1.80 and reads as a coupon.
+Better economics for them, better engagement for the report.
+
+Video pricing follows the same logic — sell it as a tier, not an add-on.
+Text slot $50, video slot $125. The justification is `video_plays` /
+`video_completions` in the report: proof of watch-through no flyer or
+Facebook boost can offer.
+
+---
+
+## Redemption — one-time tokens, not a shared code
+
+A displayed code is a screenshot waiting to happen: one post to a Fresno
+State Facebook group and an offer sold for 50 people gets redeemed 300
+times. `supabase/migrations/007_redemption_tokens.sql` replaces the old
+`display_code` reveal with a one-time token per fan per offer:
+
+1. Fan taps unlock → `issue_redemption_token()` mints a token, rendered as
+   a QR, plus a 6-character backup `short_code` (alphabet excludes
+   `0/O/1/I/L` — a vendor reads this off a cracked phone screen in the
+   sun, ambiguous characters cost real redemptions).
+2. Tapping unlock repeatedly returns the *same* token, not new ones —
+   otherwise one bored fan inflates the issued count and wrecks the
+   redeem-rate math.
+3. Vendor opens `/scan` (bookmarked, no app install), camera scans the QR
+   → `redeem_token()` flips it to green **"REDEEMED"** or red
+   **"ALREADY USED AT 2:47 PM."** Second scan of the same code always fails.
+4. Offline fallback: stadium 5G can die at kickoff. The same `/scan` page
+   has a manual 6-character entry field that hits the identical RPC — the
+   vendor writes the code on paper and keys it in late if the network is
+   down. Data's a few hours late; the vendor isn't standing there looking
+   foolish.
+5. `sale_amount` is optional on every redemption — vendors can skip it.
+   Asking turns "38 redemptions" into "$412 in attributed sales," but it's
+   pitched as the vendor's benefit, not a reporting requirement forced on
+   them at the register.
+
+Who actually cheats, in order of likelihood, and what stops them:
+
+1. **Fans sharing codes** — high motive, easy. Solved by one-time tokens.
+2. **Vendors not bothering to scan** — the real risk, and it's friction,
+   not malice. If it takes more than three seconds they won't do it and
+   redemption data goes empty. Hence: no install, bookmarked URL, camera
+   opens, done.
+3. **Us inflating numbers** — worth designing against, because a vendor
+   who suspects it never renews. Every redemption row is timestamped,
+   GPS-stamped, and tied to a unique token — the audit trail exists
+   whether or not anyone ever asks for it.
+
+### Two fixes made vs. the version first discussed
+
+- **Vendor account scoping.** The original `redeem_token()` had no check
+  binding a caller to their own vendor — any authenticated vendor login
+  could redeem or read any other vendor's tokens. Fixed: `vendor_users`
+  rows scope a caller to one `vendor_id`; a caller with no `vendor_users`
+  row at all is the site admin (matches the existing single-shared-admin
+  model everywhere else) and keeps full access. Revoking access is a soft
+  flag (`vendor_users.active`), never a row delete — deleting the row
+  would flip a revoked vendor back to "no row = admin," the opposite of
+  the intent.
+- **`token_integrity.distant_redemptions`** originally compared latitude
+  only (`abs(issued_lat - redeemed_lat) > 0.02`), so two points at the
+  same latitude but miles apart in longitude read as zero distance.
+  Replaced with a real `ST_Distance` check on both axes.
+
+`token_integrity` (`supabase/migrations/007`) is the fraud dashboard,
+admin-only, never shown to a vendor:
+
+- **`tokens_per_session`** above ~1.5 means automation or a shared device.
+- **`distant_redemptions`** catches a code that got passed to someone
+  across town.
+- Watch **`avg_gps_accuracy_m`** in `venue_diagnostics` too — if it's
+  coming back at 50m+ near the stadium structure, the fence needs more
+  buffer than the 150m clamp in `get_live_offers`. Better to find that out
+  on a test walk than on Oct 10.
+
+CSV export of `campaign_report` is a ten-line client-side function and
+ships first because it's fast. A one-page PDF (vendor name, the four big
+numbers, the hourly chart) is what actually sells a taco-truck renewal —
+nobody there opens a CSV — but it's deliberately deferred until there's a
+game's worth of real data to design the layout around.

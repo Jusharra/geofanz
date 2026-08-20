@@ -1,4 +1,4 @@
-import { listCampaignReports, listCampaignHourly, listVenueDiagnostics } from '../lib/data.js'
+import { listCampaignReports, listCampaignHourly, listVenueDiagnostics, listTokenIntegrity } from '../lib/data.js'
 import { escapeHtml } from '../lib/dom.js'
 import { downloadCsv } from '../lib/csv.js'
 
@@ -173,7 +173,7 @@ async function renderChart(chartEl) {
 // ---------- diagnostics (internal only) ----------
 
 async function renderDiagnostics(body) {
-  const rows = await listVenueDiagnostics()
+  const [rows, tokenRows] = await Promise.all([listVenueDiagnostics(), listTokenIntegrity()])
 
   body.innerHTML = `
     <div class="mb-4 px-4 py-3 rounded-xl bg-amber-950/40 border border-amber-800/50">
@@ -213,6 +213,43 @@ async function renderDiagnostics(body) {
             `
             })
             .join('') || `<tr><td colspan="8" class="px-3 py-6 text-center text-white/40">No activity yet.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="text-sm font-bold mt-6 mb-2">Redemption token integrity</h3>
+    <p class="text-xs text-white/40 mb-3">tokens_per_session above ~1.5 means automation or a shared device. distant_redemptions catches codes passed to someone across town.</p>
+    <div class="overflow-x-auto rounded-xl border border-white/10">
+      <table class="w-full text-sm">
+        <thead class="bg-surface text-white/50 text-xs uppercase">
+          <tr>
+            <th class="text-left px-3 py-2">Campaign</th>
+            <th class="text-right px-3 py-2">Issued</th>
+            <th class="text-right px-3 py-2">Redeemed</th>
+            <th class="text-right px-3 py-2">Redeem rate</th>
+            <th class="text-right px-3 py-2">Unique sessions</th>
+            <th class="text-right px-3 py-2">Tokens / session</th>
+            <th class="text-right px-3 py-2">Distant redemptions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tokenRows
+            .map((r) => {
+              const badRatio = r.tokens_per_session != null && r.tokens_per_session > 1.5
+              const badDistant = r.distant_redemptions > 0
+              return `
+              <tr class="border-t border-white/5">
+                <td class="px-3 py-2">${escapeHtml(r.campaign_name || 'Untitled campaign')}</td>
+                <td class="px-3 py-2 text-right">${r.issued}</td>
+                <td class="px-3 py-2 text-right">${r.redeemed}</td>
+                <td class="px-3 py-2 text-right">${r.redeem_rate_pct != null ? `${r.redeem_rate_pct}%` : '—'}</td>
+                <td class="px-3 py-2 text-right">${r.unique_sessions}</td>
+                <td class="px-3 py-2 text-right ${badRatio ? 'text-amber-400 font-bold' : ''}">${r.tokens_per_session ?? '—'}</td>
+                <td class="px-3 py-2 text-right ${badDistant ? 'text-amber-400 font-bold' : ''}">${r.distant_redemptions}</td>
+              </tr>
+            `
+            })
+            .join('') || `<tr><td colspan="7" class="px-3 py-6 text-center text-white/40">No tokens issued yet.</td></tr>`}
         </tbody>
       </table>
     </div>

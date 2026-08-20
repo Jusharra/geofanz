@@ -101,3 +101,44 @@ export async function listVenueDiagnostics() {
     await supabase.from('venue_diagnostics').select('*').order('day', { ascending: false })
   )
 }
+
+// Fraud/quality signals for the redemption-token system -- also
+// internal-only. See migration 007's comments on token_integrity.
+export async function listTokenIntegrity() {
+  return check(await supabase.from('token_integrity').select('*'))
+}
+
+// ---------- vendor staff ----------
+
+export async function listVendorUsers() {
+  return check(
+    await supabase
+      .from('vendor_users')
+      .select('*, vendors(dba_name)')
+      .order('created_at', { ascending: false })
+  )
+}
+
+export async function setVendorUserActive(userId, active) {
+  check(await supabase.from('vendor_users').update({ active }).eq('user_id', userId))
+}
+
+// Server-side only -- this is the one call that touches the service role
+// key, via the invite-vendor Netlify function. Sends the caller's own
+// access token so the function can verify authorization through RLS
+// rather than trusting the request body.
+export async function inviteVendorStaff(email, vendorId, role) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const token = sessionData.session?.access_token
+  const res = await fetch('/.netlify/functions/invite-vendor', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ email, vendorId, role }),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error || 'Invite failed')
+  return body
+}
