@@ -2,11 +2,11 @@
 // Runs server-side only -- this is the one place SUPABASE_SERVICE_ROLE_KEY
 // is allowed to exist, per CLAUDE.md's hard constraint #2.
 //
-// Auth model: the caller's own JWT is used to open a request-scoped
-// client that respects RLS, so "is this caller allowed to invite
-// people" is answered by Postgres (admin_vendor_users policy -- true
-// for anyone NOT already a vendor_user), not by trusting the request
-// body. The service-role client is used only for the two actions that
+// Auth model: the caller's own JWT identifies them (never trust the
+// request body for who's asking), then "is this caller allowed to
+// invite people" is a direct check -- anyone with no vendor_users row
+// of their own is the site admin, same convention as everywhere else.
+// The service-role client is used only for the two actions that
 // require it: sending the invite and inserting the resulting link.
 import { createClient } from '@supabase/supabase-js'
 
@@ -34,22 +34,31 @@ export const handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'email and vendorId are required' }) }
   }
   role = role === 'owner' ? 'owner' : 'staff'
+  const jwt = authHeader.replace(/^Bearer\s+/i, '')
 
-  // Acts as the caller -- RLS decides whether they're allowed to manage
-  // vendor_users (admin_vendor_users policy: true for non-vendor accounts).
+  // Acts as the caller for RLS purposes. Note: auth.getUser() checks the
+  // CLIENT'S OWN session state, not the Authorization header attached via
+  // `global.headers` (that header only reaches PostgREST/Storage calls) --
+  // the JWT has to be passed explicitly here or this always reports "no
+  // user" regardless of who's actually calling.
   const callerClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
   })
-  const { data: userData, error: userErr } = await callerClient.auth.getUser()
+  const { data: userData, error: userErr } = await callerClient.auth.getUser(jwt)
   if (userErr || !userData?.user) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session' }) }
   }
 
-  const { error: probeErr } = await callerClient
+  // Explicit membership check rather than "does some query against
+  // vendor_users error" -- RLS filters rows for a vendor_user caller
+  // rather than erroring, so a probe query like that would silently pass
+  // anyone, not just the admin.
+  const { data: ownRow, error: ownErr } = await callerClient
     .from('vendor_users')
-    .select('user_id', { count: 'exact', head: true })
-    .eq('vendor_id', vendorId)
-  if (probeErr) {
+    .select('user_id')
+    .eq('user_id', userData.user.id)
+    .maybeSingle()
+  if (ownErr || ownRow) {
     return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized to invite staff' }) }
   }
 
