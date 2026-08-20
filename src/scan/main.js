@@ -260,6 +260,26 @@ async function renderScanner(vendorUser) {
   await setupCamera()
 }
 
+function cameraErrorMessage(err) {
+  switch (err?.name) {
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      return 'Camera permission denied. Allow camera access in your browser/site settings, then tap Retry.'
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return 'No camera found on this device.'
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return 'Camera is already in use by another app or tab.'
+    case 'OverconstrainedError':
+      return "No camera matches what's needed here."
+    case 'SecurityError':
+      return 'Camera requires a secure (https) connection.'
+    default:
+      return `Camera unavailable (${err?.name || 'unknown error'}: ${err?.message || 'no details'}).`
+  }
+}
+
 async function setupCamera() {
   const video = document.getElementById('camera-video')
   const canvas = document.getElementById('camera-canvas')
@@ -269,8 +289,17 @@ async function setupCamera() {
     cameraStream = await startCamera(video)
     status.textContent = ''
     armScanLoop(video, canvas)
-  } catch {
-    status.textContent = 'Camera unavailable — use the code entry below instead.'
+  } catch (err) {
+    status.innerHTML = `
+      <span class="flex flex-col items-center gap-2 max-w-[240px]">
+        <span>${escapeHtml(cameraErrorMessage(err))} Use the code entry below instead, or</span>
+        <button id="retry-camera" class="btn-secondary text-xs">Retry camera</button>
+      </span>
+    `
+    document.getElementById('retry-camera')?.addEventListener('click', () => {
+      status.textContent = ''
+      setupCamera()
+    })
   }
 }
 
