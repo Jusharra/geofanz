@@ -239,7 +239,7 @@ function renderDashboard(user) {
           <button id="sign-out" class="btn-secondary text-sm py-1.5 px-3">Sign out</button>
         </div>
       </header>
-      <nav class="flex gap-1 px-4 pt-3 border-b border-white/10 overflow-x-auto">
+      <nav class="flex flex-wrap gap-1 px-4 pt-3 border-b border-white/10">
         ${TABS.map(
           (t) => `
           <button data-tab="${t.id}"
