@@ -135,6 +135,7 @@ function renderOffers(offers, geo) {
         <h2 class="text-2xl font-extrabold mt-1">${escapeHtml(o.headline)}</h2>
         ${o.deal_text ? `<p class="text-hot font-bold text-lg mt-1">${escapeHtml(o.deal_text)}</p>` : ''}
         ${o.description ? `<p class="text-white/60 text-sm mt-2">${escapeHtml(o.description)}</p>` : ''}
+        ${o.media_url && !o.video_url ? `<img src="${escapeHtml(o.media_url)}" alt="" class="mt-4 w-full rounded-xl aspect-video object-cover" />` : ''}
         ${o.video_url ? `<div class="mt-4 rounded-xl overflow-hidden bg-black aspect-video" data-video-slot="${o.offer_id}">
           <button type="button" data-play-video="${o.offer_id}" class="relative w-full h-full block">
             ${o.video_poster_url ? `<img src="${escapeHtml(o.video_poster_url)}" alt="" class="w-full h-full object-cover" />` : ''}
@@ -152,6 +153,10 @@ function renderOffers(offers, geo) {
             Tap to reveal code
           </button>
         </div>` : ''}
+        ${o.cta_url ? `<a href="${escapeHtml(o.cta_url)}" target="_blank" rel="noopener" data-cta="${o.offer_id}"
+          class="mt-4 block w-full py-3 rounded-xl bg-hot text-center font-bold tracking-wide">
+          ${ctaLabel(o.offer_type)}
+        </a>` : ''}
       </article>
     `
     )
@@ -166,6 +171,34 @@ function renderOffers(offers, geo) {
   startCountdowns()
   wireReveal(offers, geo)
   wireVideo(offers, geo)
+  wireCta(offers, geo)
+}
+
+function ctaLabel(offerType) {
+  if (offerType === 'download') return 'Download'
+  if (offerType === 'link') return 'Visit site'
+  return 'Learn more'
+}
+
+function wireCta(offers, geo) {
+  const byId = new Map(offers.map((o) => [String(o.offer_id), o]))
+  document.querySelectorAll('[data-cta]').forEach((link) => {
+    link.addEventListener('click', () => {
+      const o = byId.get(link.dataset.cta)
+      if (!o) return
+      logImpression({
+        campaignId: o.campaign_id,
+        offerId: o.offer_id,
+        venueId: o.venue_id,
+        eventType: 'cta_click',
+        insideFence: true,
+        distanceM: o.distance_m,
+        accuracyM: geo?.accuracy,
+        lat: geo?.latitude,
+        lng: geo?.longitude,
+      })
+    }, { once: true })
+  })
 }
 
 function wireVideo(offers, geo) {

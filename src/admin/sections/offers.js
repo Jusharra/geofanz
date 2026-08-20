@@ -1,4 +1,5 @@
 import { listOffers, upsertOffer, deleteOffer, listVendors } from '../lib/data.js'
+import { uploadOfferImage, uploadOfferPoster, uploadOfferVideo } from '../lib/storage.js'
 import { escapeHtml } from '../lib/dom.js'
 
 const OFFER_TYPES = ['text', 'image', 'video', 'download', 'coupon', 'link']
@@ -45,6 +46,22 @@ export async function renderOffersSection(container) {
             <textarea id="description" name="description" rows="2" class="field-textarea"></textarea>
           </div>
           <p id="trademark-warning" class="hidden text-xs text-amber-400 bg-amber-950/40 border border-amber-800/50 rounded-lg px-3 py-2"></p>
+
+          <div>
+            <label class="field-label">Photo</label>
+            <div class="flex items-center gap-3">
+              <div class="media-preview" id="media-preview"></div>
+              <div>
+                <label class="btn-secondary inline-block cursor-pointer text-sm">
+                  Upload photo
+                  <input type="file" id="media-input" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" />
+                </label>
+                <p class="field-hint" id="media-status">PNG, JPG, WebP, or GIF. Under 3MB. Shows on the fan-page card.</p>
+              </div>
+            </div>
+            <input id="media_url" name="media_url" type="url" placeholder="or paste an image URL directly" class="field-input mt-2" />
+          </div>
+
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="field-label" for="offer_type">Offer type</label>
@@ -60,6 +77,7 @@ export async function renderOffersSection(container) {
           <div>
             <label class="field-label" for="cta_url">CTA URL</label>
             <input id="cta_url" name="cta_url" type="url" class="field-input" />
+            <p class="field-hint">Renders as a button on the fan card — "Visit site" for link offers, "Download" for download offers. Leave blank if the offer is redeemed by code alone.</p>
           </div>
 
           <div id="video-fields" class="hidden space-y-4 border-t border-white/10 pt-4">
@@ -72,12 +90,31 @@ export async function renderOffersSection(container) {
             </div>
             <div>
               <label class="field-label" for="video_url">Video URL</label>
-              <input id="video_url" name="video_url" type="url" placeholder="https://youtube.com/watch?v=… or Storage URL" class="field-input" />
+              <input id="video_url" name="video_url" type="url" placeholder="https://youtube.com/watch?v=…" class="field-input" />
+              <div id="video-upload-row" class="hidden mt-2 flex items-center gap-3">
+                <div class="media-preview" id="video-preview"></div>
+                <div>
+                  <label class="btn-secondary inline-block cursor-pointer text-sm">
+                    Upload video file
+                    <input type="file" id="video-input" accept="video/mp4,video/webm,video/quicktime" class="hidden" />
+                  </label>
+                  <p class="field-hint" id="video-status">MP4, WebM, or MOV. Under 8MB.</p>
+                </div>
+              </div>
             </div>
             <div>
               <label class="field-label" for="video_poster_url">Poster image URL</label>
               <input id="video_poster_url" name="video_poster_url" type="url" placeholder="First-frame thumbnail" class="field-input" />
-              <p class="field-hint" id="poster-hint">Required for hosted video — without it the tap target is blank.</p>
+              <div class="mt-2 flex items-center gap-3">
+                <div class="media-preview" id="poster-preview"></div>
+                <div>
+                  <label class="btn-secondary inline-block cursor-pointer text-sm">
+                    Upload poster image
+                    <input type="file" id="poster-input" accept="image/png,image/jpeg,image/webp" class="hidden" />
+                  </label>
+                  <p class="field-hint" id="poster-status">Required for hosted video — without it the tap target is blank.</p>
+                </div>
+              </div>
             </div>
             <div>
               <label class="field-label" for="video_seconds">Length (seconds, max 60)</label>
@@ -166,6 +203,51 @@ function checkTrademarks(container) {
 function toggleVideoFields(container) {
   const offerType = container.querySelector('[name=offer_type]').value
   container.querySelector('#video-fields').classList.toggle('hidden', offerType !== 'video')
+  toggleVideoUploadRow(container)
+}
+
+function toggleVideoUploadRow(container) {
+  const isHosted = container.querySelector('[name=video_source]').value === 'hosted'
+  container.querySelector('#video-upload-row').classList.toggle('hidden', !isHosted)
+}
+
+function setPreview(el, url, isVideo = false) {
+  if (!url) {
+    el.innerHTML = ''
+    return
+  }
+  el.innerHTML = isVideo ? `<video src="${escapeHtml(url)}" muted></video>` : `<img src="${escapeHtml(url)}" alt="" />`
+}
+
+function wireUpload({ container, fileInputId, urlFieldName, statusId, previewId, uploadFn, isVideo }) {
+  const fileInput = container.querySelector(`#${fileInputId}`)
+  const urlField = container.querySelector(`[name=${urlFieldName}]`)
+  const statusEl = container.querySelector(`#${statusId}`)
+  const previewEl = previewId ? container.querySelector(`#${previewId}`) : null
+  const defaultHint = statusEl.textContent
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0]
+    if (!file) return
+    statusEl.className = 'field-hint text-white/70'
+    statusEl.textContent = 'Uploading…'
+    try {
+      const url = await uploadFn(file)
+      urlField.value = url
+      if (previewEl) setPreview(previewEl, url, isVideo)
+      statusEl.className = 'field-hint text-green-400'
+      statusEl.textContent = 'Uploaded.'
+    } catch (err) {
+      statusEl.className = 'field-hint text-red-400'
+      statusEl.textContent = err.message
+    } finally {
+      fileInput.value = ''
+      setTimeout(() => {
+        statusEl.className = 'field-hint'
+        statusEl.textContent = defaultHint
+      }, 2500)
+    }
+  })
 }
 
 function wireForm(container) {
@@ -175,6 +257,20 @@ function wireForm(container) {
   })
 
   form.querySelector('[name=offer_type]').addEventListener('change', () => toggleVideoFields(container))
+  form.querySelector('[name=video_source]').addEventListener('change', () => toggleVideoUploadRow(container))
+
+  wireUpload({
+    container, fileInputId: 'media-input', urlFieldName: 'media_url',
+    statusId: 'media-status', previewId: 'media-preview', uploadFn: uploadOfferImage,
+  })
+  wireUpload({
+    container, fileInputId: 'poster-input', urlFieldName: 'video_poster_url',
+    statusId: 'poster-status', previewId: 'poster-preview', uploadFn: uploadOfferPoster,
+  })
+  wireUpload({
+    container, fileInputId: 'video-input', urlFieldName: 'video_url',
+    statusId: 'video-status', previewId: 'video-preview', uploadFn: uploadOfferVideo, isVideo: true,
+  })
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
@@ -197,6 +293,7 @@ function wireForm(container) {
       offer_type: offerType,
       display_code: fd.get('display_code') || null,
       cta_url: fd.get('cta_url') || null,
+      media_url: fd.get('media_url') || null,
       active: fd.get('active') === 'on',
       video_source: isVideo ? fd.get('video_source') : null,
       video_url: isVideo ? fd.get('video_url') || null : null,
@@ -224,11 +321,15 @@ function fillForm(container, offer) {
   form.querySelector('[name=offer_type]').value = offer.offer_type ?? 'text'
   form.querySelector('[name=display_code]').value = offer.display_code ?? ''
   form.querySelector('[name=cta_url]').value = offer.cta_url ?? ''
+  form.querySelector('[name=media_url]').value = offer.media_url ?? ''
   form.querySelector('[name=active]').checked = !!offer.active
   form.querySelector('[name=video_source]').value = offer.video_source ?? 'embed'
   form.querySelector('[name=video_url]').value = offer.video_url ?? ''
   form.querySelector('[name=video_poster_url]').value = offer.video_poster_url ?? ''
   form.querySelector('[name=video_seconds]').value = offer.video_seconds ?? ''
+  setPreview(container.querySelector('#media-preview'), offer.media_url)
+  setPreview(container.querySelector('#poster-preview'), offer.video_poster_url)
+  setPreview(container.querySelector('#video-preview'), offer.video_source === 'hosted' ? offer.video_url : null, true)
   toggleVideoFields(container)
   checkTrademarks(container)
 }
@@ -237,5 +338,8 @@ function resetForm(container) {
   editingId = null
   container.querySelector('#offer-form').reset()
   container.querySelector('#trademark-warning').classList.add('hidden')
+  setPreview(container.querySelector('#media-preview'), null)
+  setPreview(container.querySelector('#poster-preview'), null)
+  setPreview(container.querySelector('#video-preview'), null)
   toggleVideoFields(container)
 }
