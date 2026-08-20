@@ -1,5 +1,6 @@
 import { listVendors, upsertVendor, deleteVendor } from '../lib/data.js'
 import { escapeHtml } from '../lib/dom.js'
+import { toastSuccess, toastError } from '../lib/toast.js'
 
 let editingId = null
 
@@ -100,6 +101,7 @@ function renderList(container, vendors) {
       const v = vendors.find((x) => x.id === btn.dataset.delete)
       if (!confirm(`Delete vendor "${v?.dba_name}"? Their offers/campaigns will be deleted too.`)) return
       await deleteVendor(btn.dataset.delete)
+      toastSuccess(`Deleted "${v?.dba_name}".`)
       renderVendorsSection(container)
     })
   )
@@ -125,9 +127,11 @@ function wireForm(container) {
 
     try {
       await upsertVendor(payload)
+      toastSuccess('Vendor saved.')
       renderVendorsSection(container)
     } catch (err) {
       errorEl.textContent = err.message
+      toastError(err.message)
     }
   })
 }

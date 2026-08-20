@@ -1,6 +1,7 @@
 import { listOffers, upsertOffer, deleteOffer, listVendors } from '../lib/data.js'
 import { uploadOfferImage, uploadOfferPoster, uploadOfferVideo } from '../lib/storage.js'
 import { escapeHtml } from '../lib/dom.js'
+import { toastSuccess, toastError } from '../lib/toast.js'
 
 const OFFER_TYPES = ['text', 'image', 'video', 'download', 'coupon', 'link']
 
@@ -190,6 +191,7 @@ function renderList(container, offers) {
       const o = offers.find((x) => x.id === btn.dataset.delete)
       if (!confirm(`Delete offer "${o?.headline}"? Campaigns using it will be deleted too.`)) return
       await deleteOffer(btn.dataset.delete)
+      toastSuccess(`Deleted "${o?.headline}".`)
       renderOffersSection(container)
     })
   )
@@ -324,9 +326,11 @@ function wireForm(container) {
 
     try {
       await upsertOffer(payload)
+      toastSuccess('Offer saved.')
       renderOffersSection(container)
     } catch (err) {
       errorEl.textContent = err.message
+      toastError(err.message)
     }
   })
 }

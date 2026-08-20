@@ -108,6 +108,12 @@ export async function listTokenIntegrity() {
   return check(await supabase.from('token_integrity').select('*'))
 }
 
+// ---------- activity ----------
+
+export async function listRecentActivity() {
+  return check(await supabase.from('recent_activity').select('*').order('at', { ascending: false }))
+}
+
 // ---------- vendor staff ----------
 
 export async function listVendorUsers() {

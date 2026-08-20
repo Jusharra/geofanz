@@ -152,6 +152,15 @@ function renderResetPassword() {
     const fd = new FormData(e.target)
     try {
       await updatePassword(fd.get('password'))
+      // updateUser() fires USER_UPDATED, which falls through boot()'s
+      // general session branch -- without this, a vendor whose
+      // vendor_password_set is still false would land right back on
+      // renderSetPassword and be asked to do this a second time.
+      await updateProfile({ vendor_password_set: true })
+      const user = await getCurrentUser()
+      const vendorUser = await getMyVendorUser(user.id)
+      currentView = 'scanner'
+      renderScanner(vendorUser)
     } catch (err) {
       errorEl.textContent = err.message
     }

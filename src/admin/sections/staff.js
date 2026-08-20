@@ -1,5 +1,7 @@
 import { listVendorUsers, setVendorUserActive, inviteVendorStaff, listVendors } from '../lib/data.js'
+import { requestVendorSetupLink } from '../lib/auth.js'
 import { escapeHtml } from '../lib/dom.js'
+import { toastSuccess, toastError } from '../lib/toast.js'
 
 export async function renderStaffSection(container) {
   const [staff, vendors] = await Promise.all([listVendorUsers(), listVendors()])
@@ -52,10 +54,14 @@ function renderList(container, staff) {
           <p class="font-semibold text-sm">${escapeHtml(s.email ?? 'Unknown')} ${s.active ? '' : '<span class="text-white/30">(revoked)</span>'}</p>
           <p class="text-xs text-white/40">${escapeHtml(s.vendors?.dba_name ?? '—')} · ${s.role}</p>
         </div>
-        <button data-toggle="${s.user_id}" data-active="${s.active}"
-          class="text-xs px-2.5 py-1 rounded-lg transition-colors ${
-            s.active ? 'bg-red-950/60 text-red-300 hover:bg-red-900/60' : 'bg-white/10 hover:bg-white/20'
-          }">${s.active ? 'Revoke' : 'Reinstate'}</button>
+        <div class="flex gap-2 shrink-0">
+          <button data-resend="${escapeHtml(s.email ?? '')}"
+            class="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Resend link</button>
+          <button data-toggle="${s.user_id}" data-active="${s.active}"
+            class="text-xs px-2.5 py-1 rounded-lg transition-colors ${
+              s.active ? 'bg-red-950/60 text-red-300 hover:bg-red-900/60' : 'bg-white/10 hover:bg-white/20'
+            }">${s.active ? 'Revoke' : 'Reinstate'}</button>
+        </div>
       </div>
     `
     )
@@ -65,7 +71,26 @@ function renderList(container, staff) {
     btn.addEventListener('click', async () => {
       const nextActive = btn.dataset.active !== 'true'
       await setVendorUserActive(btn.dataset.toggle, nextActive)
+      toastSuccess(nextActive ? 'Staff reinstated.' : 'Staff revoked.')
       renderStaffSection(container)
+    })
+  )
+
+  // Uses the password-recovery flow, not inviteUserByEmail's one-shot
+  // invite link -- the exact code path already proven working for the
+  // admin's own password reset, so there's no separate flow to fail.
+  list.querySelectorAll('[data-resend]').forEach((btn) =>
+    btn.addEventListener('click', async () => {
+      if (!btn.dataset.resend) return
+      btn.disabled = true
+      try {
+        await requestVendorSetupLink(btn.dataset.resend)
+        toastSuccess(`Setup link sent to ${btn.dataset.resend}.`)
+      } catch (err) {
+        toastError(err.message)
+      } finally {
+        btn.disabled = false
+      }
     })
   )
 }
@@ -83,10 +108,12 @@ function wireInviteForm(container) {
       await inviteVendorStaff(fd.get('email'), fd.get('vendorId'), fd.get('role'))
       statusEl.className = 'text-sm text-green-400'
       statusEl.textContent = 'Invite sent.'
+      toastSuccess(`Invite sent to ${fd.get('email')}.`)
       renderStaffSection(container)
     } catch (err) {
       statusEl.className = 'text-sm text-red-400'
       statusEl.textContent = err.message
+      toastError(err.message)
       submitBtn.disabled = false
     }
   })

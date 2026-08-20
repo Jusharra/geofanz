@@ -1,6 +1,7 @@
 import L from 'leaflet'
 import { listVenues, upsertVenue, deleteVenue } from '../lib/data.js'
 import { escapeHtml } from '../lib/dom.js'
+import { toastSuccess, toastError } from '../lib/toast.js'
 
 const FRESNO = { lat: 36.7378, lng: -119.7871 }
 const VENUE_TYPES = ['stadium', 'arena', 'airport', 'venue', 'test']
@@ -136,6 +137,7 @@ function renderVenueList(container, venues) {
       const v = venues.find((x) => x.id === btn.dataset.delete)
       if (!confirm(`Delete venue "${v?.name}"? This cannot be undone.`)) return
       await deleteVenue(btn.dataset.delete)
+      toastSuccess(`Deleted "${v?.name}".`)
       renderVenuesSection(container)
     })
   )
@@ -215,9 +217,11 @@ function wireForm(container) {
 
     try {
       await upsertVenue(payload)
+      toastSuccess('Venue saved.')
       renderVenuesSection(container)
     } catch (err) {
       errorEl.textContent = err.message
+      toastError(err.message)
     }
   })
 }

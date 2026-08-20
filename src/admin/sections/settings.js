@@ -1,6 +1,7 @@
 import { getCurrentUser, updateEmail, updatePassword, updateProfile } from '../lib/auth.js'
 import { uploadAvatar } from '../lib/storage.js'
 import { escapeHtml } from '../lib/dom.js'
+import { toastSuccess, toastError } from '../lib/toast.js'
 
 const LANDING_TABS = [
   { id: 'venues', label: 'Venues' },
@@ -87,9 +88,11 @@ function wireProfileForm(container, user, meta) {
       preview.innerHTML = `<img src="${escapeHtml(url)}" alt="" />`
       statusEl.className = 'text-sm text-green-400'
       statusEl.textContent = 'Avatar updated.'
+      toastSuccess('Avatar updated.')
     } catch (err) {
       statusEl.className = 'text-sm text-red-400'
       statusEl.textContent = err.message
+      toastError(err.message)
     }
   })
 
@@ -102,9 +105,11 @@ function wireProfileForm(container, user, meta) {
       await updateProfile({ username: fd.get('username') || null })
       statusEl.className = 'text-sm text-green-400'
       statusEl.textContent = 'Saved.'
+      toastSuccess('Profile saved.')
     } catch (err) {
       statusEl.className = 'text-sm text-red-400'
       statusEl.textContent = err.message
+      toastError(err.message)
     }
   })
 }
@@ -153,9 +158,11 @@ function wireAccountForms(container, user) {
       await updateEmail(newEmail)
       statusEl.className = 'text-sm text-green-400'
       statusEl.textContent = 'Check your new inbox for a confirmation link.'
+      toastSuccess('Confirmation link sent to your new email.')
     } catch (err) {
       statusEl.className = 'text-sm text-red-400'
       statusEl.textContent = err.message
+      toastError(err.message)
     }
   })
 
@@ -174,10 +181,12 @@ function wireAccountForms(container, user) {
       await updatePassword(fd.get('password'))
       statusEl.className = 'text-sm text-green-400'
       statusEl.textContent = 'Password updated.'
+      toastSuccess('Password updated.')
       passwordForm.reset()
     } catch (err) {
       statusEl.className = 'text-sm text-red-400'
       statusEl.textContent = err.message
+      toastError(err.message)
     }
   })
 }
@@ -229,9 +238,11 @@ function wireNotificationsForm(container) {
       await updateProfile(partial)
       statusEl.className = 'text-sm text-green-400'
       statusEl.textContent = 'Saved.'
+      toastSuccess('Notification preferences saved.')
     } catch (err) {
       statusEl.className = 'text-sm text-red-400'
       statusEl.textContent = err.message
+      toastError(err.message)
     }
   })
 }
@@ -277,9 +288,11 @@ function wirePreferencesForm(container) {
       })
       statusEl.className = 'text-sm text-green-400'
       statusEl.textContent = 'Saved.'
+      toastSuccess('Preferences saved.')
     } catch (err) {
       statusEl.className = 'text-sm text-red-400'
       statusEl.textContent = err.message
+      toastError(err.message)
     }
   })
 }

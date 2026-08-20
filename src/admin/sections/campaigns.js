@@ -7,6 +7,7 @@ import {
   listVenues,
 } from '../lib/data.js'
 import { escapeHtml } from '../lib/dom.js'
+import { toastSuccess, toastError } from '../lib/toast.js'
 
 let editingId = null
 
@@ -127,6 +128,7 @@ function renderList(container, campaigns) {
       const c = campaigns.find((x) => x.id === btn.dataset.delete)
       if (!confirm(`Delete campaign "${c?.name || c?.offers?.headline}"?`)) return
       await deleteCampaign(btn.dataset.delete)
+      toastSuccess('Campaign deleted.')
       renderCampaignsSection(container)
     })
   )
@@ -169,9 +171,11 @@ function wireForm(container, offers) {
     try {
       const saved = await upsertCampaign(payload)
       await setCampaignVenues(saved.id, venueIds)
+      toastSuccess('Campaign saved.')
       renderCampaignsSection(container)
     } catch (err) {
       errorEl.textContent = err.message
+      toastError(err.message)
     }
   })
 }

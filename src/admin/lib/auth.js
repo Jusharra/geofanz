@@ -17,11 +17,20 @@ export async function signOut() {
 // Sends a reset-password email. redirectTo must be on Supabase's allow list
 // (Authentication -> URL Configuration -> Redirect URLs) or Supabase silently
 // falls back to the project's Site URL instead of landing back on /admin.
-export async function requestPasswordReset(email) {
+export async function requestPasswordReset(email, path = '/admin') {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/admin`,
+    redirectTo: `${window.location.origin}${path}`,
   })
   if (error) throw error
+}
+
+// Same recovery mechanism, aimed at /scan -- used to (re-)send a vendor
+// staff member their setup link. More reliable than inviteUserByEmail's
+// one-shot invite link in practice: it's the exact code path that already
+// works for the admin's own password reset, so there's no separate flow
+// to have its own bugs.
+export async function requestVendorSetupLink(email) {
+  return requestPasswordReset(email, '/scan')
 }
 
 export async function updatePassword(newPassword) {
