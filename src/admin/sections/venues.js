@@ -83,7 +83,8 @@ export async function renderVenuesSection(container, user) {
 
           <div>
             <label class="field-label" for="radius_meters">Radius: <span id="radius-value" class="text-hot font-bold normal-case">${formatDistance(800)}</span></label>
-            <input id="radius_meters" name="radius_meters" type="range" min="25" max="2000" step="25" value="800" class="field-range" />
+            <input id="radius_meters" name="radius_meters" type="range" min="25" max="3219" step="25" value="800" class="field-range" />
+            <p class="field-hint">Up to 2 miles (3,219m).</p>
           </div>
 
           <div class="flex gap-2 pt-2">
