@@ -3,6 +3,7 @@ import { supabase, supabaseConfigured } from './lib/supabase.js'
 import { getSessionId } from './lib/session.js'
 import { getPosition, coarsen } from './lib/geolocation.js'
 import { getScenario, setScenario, mockLiveOffers, mockFenceCheck } from './lib/mock.js'
+import { toEmbedUrl } from './lib/video.js'
 
 const app = document.getElementById('app')
 
@@ -47,6 +48,7 @@ async function logImpression({
   accuracyM = null,
   lat = null,
   lng = null,
+  videoPct = null,
 }) {
   const row = {
     campaign_id: campaignId,
@@ -59,6 +61,7 @@ async function logImpression({
     coarse_lat: lat != null ? coarsen(lat) : null,
     coarse_lng: lng != null ? coarsen(lng) : null,
     event_type: eventType,
+    video_pct: videoPct,
     user_agent: navigator.userAgent,
   }
 
@@ -132,6 +135,16 @@ function renderOffers(offers, geo) {
         <h2 class="text-2xl font-extrabold mt-1">${escapeHtml(o.headline)}</h2>
         ${o.deal_text ? `<p class="text-hot font-bold text-lg mt-1">${escapeHtml(o.deal_text)}</p>` : ''}
         ${o.description ? `<p class="text-white/60 text-sm mt-2">${escapeHtml(o.description)}</p>` : ''}
+        ${o.video_url ? `<div class="mt-4 rounded-xl overflow-hidden bg-black aspect-video" data-video-slot="${o.offer_id}">
+          <button type="button" data-play-video="${o.offer_id}" class="relative w-full h-full block">
+            ${o.video_poster_url ? `<img src="${escapeHtml(o.video_poster_url)}" alt="" class="w-full h-full object-cover" />` : ''}
+            <span class="absolute inset-0 flex items-center justify-center bg-black/20">
+              <span class="w-14 h-14 rounded-full bg-hot flex items-center justify-center shadow-lg">
+                <svg width="18" height="22" viewBox="0 0 18 22" fill="white"><path d="M0 0L18 11L0 22V0Z"/></svg>
+              </span>
+            </span>
+          </button>
+        </div>` : ''}
         <p class="text-xs text-white/30 mt-4" data-ends-at="${o.ends_at}">Ends in …</p>
         ${o.display_code ? `<div class="mt-4" data-code-slot="${o.offer_id}">
           <button type="button" data-reveal="${o.offer_id}"
@@ -152,6 +165,60 @@ function renderOffers(offers, geo) {
 
   startCountdowns()
   wireReveal(offers, geo)
+  wireVideo(offers, geo)
+}
+
+function wireVideo(offers, geo) {
+  const byId = new Map(offers.map((o) => [String(o.offer_id), o]))
+  document.querySelectorAll('[data-play-video]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const o = byId.get(btn.dataset.playVideo)
+      if (!o) return
+      const slot = document.querySelector(`[data-video-slot="${btn.dataset.playVideo}"]`)
+      if (!slot) return
+
+      const logStart = () =>
+        logImpression({
+          campaignId: o.campaign_id,
+          offerId: o.offer_id,
+          venueId: o.venue_id,
+          eventType: 'video_start',
+          insideFence: true,
+          distanceM: o.distance_m,
+          accuracyM: geo?.accuracy,
+          lat: geo?.latitude,
+          lng: geo?.longitude,
+          videoPct: 0,
+        })
+
+      if (o.video_source === 'hosted') {
+        slot.innerHTML = `<video src="${escapeHtml(o.video_url)}" controls autoplay playsinline class="w-full h-full"></video>`
+        const videoEl = slot.querySelector('video')
+        videoEl.addEventListener('play', logStart, { once: true })
+        videoEl.addEventListener('ended', () =>
+          logImpression({
+            campaignId: o.campaign_id,
+            offerId: o.offer_id,
+            venueId: o.venue_id,
+            eventType: 'video_complete',
+            insideFence: true,
+            distanceM: o.distance_m,
+            accuracyM: geo?.accuracy,
+            lat: geo?.latitude,
+            lng: geo?.longitude,
+            videoPct: 100,
+          })
+        , { once: true })
+      } else {
+        // Embedded YouTube/Vimeo: no reliable completion signal without
+        // pulling in each platform's player SDK, which isn't worth the
+        // extra weight on the fan page. Start is still the number that
+        // matters most -- it's real engagement a flyer can't prove.
+        slot.innerHTML = `<iframe src="${escapeHtml(toEmbedUrl(o.video_url))}" class="w-full h-full" allow="autoplay; encrypted-media" allowfullscreen></iframe>`
+        logStart()
+      }
+    }, { once: true })
+  })
 }
 
 function wireReveal(offers, geo) {

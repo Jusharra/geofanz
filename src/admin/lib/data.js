@@ -86,3 +86,18 @@ export async function setCampaignVenues(campaignId, venueIds) {
 export async function listCampaignReports() {
   return check(await supabase.from('campaign_report').select('*').order('starts_at', { ascending: false }))
 }
+
+export async function listCampaignHourly(campaignId) {
+  return check(
+    await supabase.from('campaign_hourly').select('*').eq('campaign_id', campaignId).order('hour', { ascending: true })
+  )
+}
+
+// Internal-only -- never surface this data to a vendor. See CLAUDE.md /
+// the migration comments: outside_scans and denied_pct are distribution
+// diagnostics, not vendor performance.
+export async function listVenueDiagnostics() {
+  return check(
+    await supabase.from('venue_diagnostics').select('*').order('day', { ascending: false })
+  )
+}

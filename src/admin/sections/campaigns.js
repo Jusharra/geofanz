@@ -47,6 +47,7 @@ export async function renderCampaignsSection(container) {
           <div>
             <label class="field-label" for="price_paid">Price paid</label>
             <input id="price_paid" name="price_paid" type="number" step="0.01" min="0" class="field-input" />
+            <p class="field-hint">Suggested: $50 for a text slot, $125 for a video slot — the video play/completion numbers in Reports are the proof that justifies the premium.</p>
           </div>
 
           <fieldset>

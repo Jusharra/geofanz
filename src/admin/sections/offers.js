@@ -61,6 +61,31 @@ export async function renderOffersSection(container) {
             <label class="field-label" for="cta_url">CTA URL</label>
             <input id="cta_url" name="cta_url" type="url" class="field-input" />
           </div>
+
+          <div id="video-fields" class="hidden space-y-4 border-t border-white/10 pt-4">
+            <div>
+              <label class="field-label" for="video_source">Video source</label>
+              <select id="video_source" name="video_source" class="field-select">
+                <option value="embed">Embed (YouTube/Vimeo) — free</option>
+                <option value="hosted">Hosted (Supabase Storage) — premium, capped ~8MB</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="video_url">Video URL</label>
+              <input id="video_url" name="video_url" type="url" placeholder="https://youtube.com/watch?v=… or Storage URL" class="field-input" />
+            </div>
+            <div>
+              <label class="field-label" for="video_poster_url">Poster image URL</label>
+              <input id="video_poster_url" name="video_poster_url" type="url" placeholder="First-frame thumbnail" class="field-input" />
+              <p class="field-hint" id="poster-hint">Required for hosted video — without it the tap target is blank.</p>
+            </div>
+            <div>
+              <label class="field-label" for="video_seconds">Length (seconds, max 60)</label>
+              <input id="video_seconds" name="video_seconds" type="number" min="1" max="60" placeholder="30" class="field-input" />
+              <p class="field-hint">Sell 30s as standard, 60s as premium — longer doesn't get watched.</p>
+            </div>
+          </div>
+
           <label class="switch">
             <input type="checkbox" name="active" checked />
             <span class="track"><span class="thumb"></span></span>
@@ -91,7 +116,7 @@ function renderList(container, offers) {
       <div class="flex items-center justify-between card px-3 py-2.5">
         <div>
           <p class="font-semibold text-sm">${escapeHtml(o.headline)} ${o.active ? '' : '<span class="text-white/30">(inactive)</span>'}</p>
-          <p class="text-xs text-white/40">${escapeHtml(o.vendors?.dba_name ?? '—')} · ${o.offer_type}</p>
+          <p class="text-xs text-white/40">${escapeHtml(o.vendors?.dba_name ?? '—')} · ${o.offer_type}${o.video_url ? ` · 🎬 ${o.video_source}` : ''}</p>
         </div>
         <div class="flex gap-2 shrink-0">
           <button data-edit="${o.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Edit</button>
@@ -138,26 +163,45 @@ function checkTrademarks(container) {
   }
 }
 
+function toggleVideoFields(container) {
+  const offerType = container.querySelector('[name=offer_type]').value
+  container.querySelector('#video-fields').classList.toggle('hidden', offerType !== 'video')
+}
+
 function wireForm(container) {
   const form = container.querySelector('#offer-form')
   ;['headline', 'deal_text', 'description'].forEach((name) => {
     form.querySelector(`[name=${name}]`).addEventListener('input', () => checkTrademarks(container))
   })
 
+  form.querySelector('[name=offer_type]').addEventListener('change', () => toggleVideoFields(container))
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
     const errorEl = container.querySelector('#offer-error')
     errorEl.textContent = ''
     const fd = new FormData(form)
+    const offerType = fd.get('offer_type')
+    const isVideo = offerType === 'video'
+
+    if (isVideo && fd.get('video_source') === 'hosted' && !fd.get('video_poster_url')) {
+      errorEl.textContent = 'Hosted video needs a poster image URL — the tap target would be blank without one.'
+      return
+    }
+
     const payload = {
       vendor_id: fd.get('vendor_id'),
       headline: fd.get('headline'),
       deal_text: fd.get('deal_text') || null,
       description: fd.get('description') || null,
-      offer_type: fd.get('offer_type'),
+      offer_type: offerType,
       display_code: fd.get('display_code') || null,
       cta_url: fd.get('cta_url') || null,
       active: fd.get('active') === 'on',
+      video_source: isVideo ? fd.get('video_source') : null,
+      video_url: isVideo ? fd.get('video_url') || null : null,
+      video_poster_url: isVideo ? fd.get('video_poster_url') || null : null,
+      video_seconds: isVideo && fd.get('video_seconds') ? Number(fd.get('video_seconds')) : null,
     }
     if (editingId) payload.id = editingId
 
@@ -181,6 +225,11 @@ function fillForm(container, offer) {
   form.querySelector('[name=display_code]').value = offer.display_code ?? ''
   form.querySelector('[name=cta_url]').value = offer.cta_url ?? ''
   form.querySelector('[name=active]').checked = !!offer.active
+  form.querySelector('[name=video_source]').value = offer.video_source ?? 'embed'
+  form.querySelector('[name=video_url]').value = offer.video_url ?? ''
+  form.querySelector('[name=video_poster_url]').value = offer.video_poster_url ?? ''
+  form.querySelector('[name=video_seconds]').value = offer.video_seconds ?? ''
+  toggleVideoFields(container)
   checkTrademarks(container)
 }
 
@@ -188,4 +237,5 @@ function resetForm(container) {
   editingId = null
   container.querySelector('#offer-form').reset()
   container.querySelector('#trademark-warning').classList.add('hidden')
+  toggleVideoFields(container)
 }
