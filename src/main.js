@@ -95,6 +95,15 @@ function shell(bodyHtml) {
       <main class="flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
         ${bodyHtml}
       </main>
+      <footer class="site-footer">
+        <nav>
+          <a href="/how-it-works">How It Works</a>
+          <a href="/vendors">For Vendors</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+          <a href="/report">Report a Problem</a>
+        </nav>
+      </footer>
     </div>
   `
   wireDevBanner()

@@ -17,6 +17,7 @@ import { renderReportsSection } from './sections/reports.js'
 import { renderSettingsSection } from './sections/settings.js'
 import { renderStaffSection } from './sections/staff.js'
 import { renderActivitySection } from './sections/activity.js'
+import { renderInboxSection } from './sections/inbox.js'
 import { escapeHtml } from './lib/dom.js'
 import { getMyVendorUser } from '../lib/vendorUser.js'
 
@@ -28,6 +29,7 @@ const TABS = [
   { id: 'offers', label: 'Offers', render: renderOffersSection },
   { id: 'campaigns', label: 'Campaigns', render: renderCampaignsSection },
   { id: 'staff', label: 'Staff', render: renderStaffSection },
+  { id: 'inbox', label: 'Inbox', render: renderInboxSection },
   { id: 'activity', label: 'Activity', render: renderActivitySection },
   { id: 'reports', label: 'Reports', render: renderReportsSection },
   { id: 'settings', label: 'Settings', render: renderSettingsSection },

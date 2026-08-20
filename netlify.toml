@@ -12,3 +12,33 @@
   from = "/scan"
   to = "/scan.html"
   status = 200
+
+[[redirects]]
+  from = "/how-it-works"
+  to = "/how-it-works.html"
+  status = 200
+
+[[redirects]]
+  from = "/vendors"
+  to = "/vendors.html"
+  status = 200
+
+[[redirects]]
+  from = "/partner"
+  to = "/partner.html"
+  status = 200
+
+[[redirects]]
+  from = "/report"
+  to = "/report.html"
+  status = 200
+
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 200
+
+[[redirects]]
+  from = "/terms"
+  to = "/terms.html"
+  status = 200

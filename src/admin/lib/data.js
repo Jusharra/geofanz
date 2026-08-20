@@ -114,6 +114,29 @@ export async function listRecentActivity() {
   return check(await supabase.from('recent_activity').select('*').order('at', { ascending: false }))
 }
 
+// ---------- inbox: partner leads + problem reports ----------
+
+export async function listPartnerLeads() {
+  return check(await supabase.from('partner_leads').select('*').order('created_at', { ascending: false }))
+}
+
+export async function updatePartnerLeadStatus(id, status) {
+  check(await supabase.from('partner_leads').update({ status }).eq('id', id))
+}
+
+export async function listProblemReports() {
+  return check(
+    await supabase
+      .from('problem_reports')
+      .select('*, venues(name)')
+      .order('created_at', { ascending: false })
+  )
+}
+
+export async function updateProblemReportStatus(id, status) {
+  check(await supabase.from('problem_reports').update({ status }).eq('id', id))
+}
+
 // ---------- vendor staff ----------
 
 export async function listVendorUsers() {
