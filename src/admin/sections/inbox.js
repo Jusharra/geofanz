@@ -4,11 +4,6 @@ import { toastSuccess, toastError } from '../lib/toast.js'
 
 let activeSubTab = 'leads'
 
-const SUB_TABS = [
-  { id: 'leads', label: 'Partner leads' },
-  { id: 'reports', label: 'Problem reports' },
-]
-
 const LEAD_STATUSES = ['new', 'contacted', 'converted', 'declined']
 const REPORT_STATUSES = ['new', 'investigating', 'resolved']
 
@@ -31,14 +26,24 @@ function relativeTime(iso) {
 }
 
 export async function renderInboxSection(container) {
+  const [leads, reports] = await Promise.all([listPartnerLeads(), listProblemReports()])
+  const newLeads = leads.filter((l) => l.status === 'new').length
+  const newReports = reports.filter((r) => r.status === 'new').length
+
+  const subTabs = [
+    { id: 'leads', label: 'Partner leads', count: newLeads },
+    { id: 'reports', label: 'Problem reports', count: newReports },
+  ]
+
   container.innerHTML = `
+    <h2 class="font-condensed font-bold uppercase tracking-wide text-lg mb-3">Inbox</h2>
     <div class="flex gap-1 mb-4 border-b border-white/10 overflow-x-auto">
-      ${SUB_TABS.map(
+      ${subTabs.map(
         (t) => `
         <button data-subtab="${t.id}"
-          class="px-3 py-2 font-condensed font-bold uppercase tracking-wide text-xs whitespace-nowrap border-b-2 -mb-px transition-colors ${
+          class="px-3 py-2 font-condensed font-bold uppercase tracking-wide text-xs whitespace-nowrap border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
             activeSubTab === t.id ? 'text-white border-hot' : 'text-white/40 border-transparent hover:text-white/70'
-          }">${t.label}</button>
+          }">${t.label}${t.count > 0 ? `<span class="bg-hot text-white rounded-full px-1.5 py-0.5 text-[10px] leading-none">${t.count}</span>` : ''}</button>
       `
       ).join('')}
     </div>
@@ -53,12 +58,11 @@ export async function renderInboxSection(container) {
   )
 
   const body = container.querySelector('#inbox-body')
-  if (activeSubTab === 'leads') await renderLeads(body)
-  else await renderReports(body)
+  if (activeSubTab === 'leads') renderLeads(body, leads)
+  else renderReports(body, reports)
 }
 
-async function renderLeads(body) {
-  const leads = await listPartnerLeads()
+function renderLeads(body, leads) {
   body.innerHTML = `
     <div class="space-y-2">
       ${leads
@@ -91,6 +95,7 @@ async function renderLeads(body) {
       try {
         await updatePartnerLeadStatus(sel.dataset.leadStatus, sel.value)
         toastSuccess('Lead updated.')
+        renderInboxSection(body.parentElement)
       } catch (err) {
         toastError(err.message)
       }
@@ -98,8 +103,7 @@ async function renderLeads(body) {
   )
 }
 
-async function renderReports(body) {
-  const reports = await listProblemReports()
+function renderReports(body, reports) {
   body.innerHTML = `
     <div class="space-y-2">
       ${reports
@@ -131,6 +135,7 @@ async function renderReports(body) {
       try {
         await updateProblemReportStatus(sel.dataset.reportStatus, sel.value)
         toastSuccess('Report updated.')
+        renderInboxSection(body.parentElement)
       } catch (err) {
         toastError(err.message)
       }

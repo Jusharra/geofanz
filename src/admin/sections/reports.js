@@ -1,9 +1,10 @@
-import { listCampaignReports, listCampaignHourly, listVenueDiagnostics, listTokenIntegrity } from '../lib/data.js'
+import { listCampaignReports, listCampaignHourly, listVenueDiagnostics, listTokenIntegrity, listVendors } from '../lib/data.js'
 import { escapeHtml } from '../lib/dom.js'
 import { downloadCsv } from '../lib/csv.js'
 
 let activeSubTab = 'vendor'
 let selectedCampaignId = null
+let selectedVendorId = ''
 
 const SUB_TABS = [
   { id: 'vendor', label: 'Vendor report' },
@@ -13,6 +14,7 @@ const SUB_TABS = [
 
 export async function renderReportsSection(container) {
   container.innerHTML = `
+    <h2 class="font-condensed font-bold uppercase tracking-wide text-lg mb-3">Reports</h2>
     <div class="flex gap-1 mb-4 border-b border-white/10 overflow-x-auto">
       ${SUB_TABS.map(
         (t) => `
@@ -42,14 +44,30 @@ export async function renderReportsSection(container) {
 // ---------- vendor report ----------
 
 async function renderVendorReport(body) {
-  const rows = await listCampaignReports()
+  const [allRows, vendors] = await Promise.all([listCampaignReports(), listVendors()])
   const money = (n) => `$${Number(n ?? 0).toFixed(2)}`
   const fmtDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
   const pct = (n) => (n == null ? '—' : `${n}%`)
 
+  // Vendor ids present in campaign_report may not match listVendors() 1:1
+  // (a vendor with zero campaigns has nothing to report), so build the
+  // filter from vendors who actually have rows here.
+  const vendorIdsWithReports = new Set(allRows.map((r) => r.vendor_id))
+  const filterableVendors = vendors.filter((v) => vendorIdsWithReports.has(v.id))
+
+  if (selectedVendorId && !vendorIdsWithReports.has(selectedVendorId)) selectedVendorId = ''
+  const rows = selectedVendorId ? allRows.filter((r) => r.vendor_id === selectedVendorId) : allRows
+  const selectedVendor = vendors.find((v) => v.id === selectedVendorId)
+
   body.innerHTML = `
-    <div class="flex items-center justify-between mb-3">
-      <p class="text-sm text-white/50">What the vendor sees when you hand them this on Monday.</p>
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <div class="flex items-center gap-3">
+        <select id="vendor-filter" class="field-select text-sm py-1.5">
+          <option value="">All vendors</option>
+          ${filterableVendors.map((v) => `<option value="${v.id}" ${v.id === selectedVendorId ? 'selected' : ''}>${escapeHtml(v.dba_name)}</option>`).join('')}
+        </select>
+        <p class="text-sm text-white/50">${selectedVendor ? `What ${escapeHtml(selectedVendor.dba_name)} sees when they ask for their numbers.` : 'What a vendor sees when you hand them this on Monday.'}</p>
+      </div>
       <button id="export-csv" class="btn-secondary text-sm py-1.5 px-3">Download CSV</button>
     </div>
     <div class="overflow-x-auto rounded-xl border border-white/10">
@@ -94,14 +112,24 @@ async function renderVendorReport(body) {
             </tr>
           `
             )
-            .join('') || `<tr><td colspan="14" class="px-3 py-6 text-center text-white/40">No campaigns yet.</td></tr>`}
+            .join('') || `<tr><td colspan="14" class="px-3 py-6 text-center text-white/40">${selectedVendor ? `No campaigns yet for ${escapeHtml(selectedVendor.dba_name)}.` : 'No campaigns yet.'}</td></tr>`}
         </tbody>
       </table>
     </div>
   `
 
+  body.querySelector('#vendor-filter').addEventListener('change', (e) => {
+    selectedVendorId = e.target.value
+    renderVendorReport(body)
+  })
+
   body.querySelector('#export-csv').addEventListener('click', () => {
-    downloadCsv('campaign_report.csv', rows)
+    const filename = selectedVendor
+      ? `campaign_report_${selectedVendor.dba_name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv`
+      : 'campaign_report.csv'
+    // vendor_id is useful for admin filtering but meaningless to a vendor
+    // reading a CSV -- drop it from what actually gets exported.
+    downloadCsv(filename, rows.map(({ vendor_id, ...rest }) => rest))
   })
 }
 
