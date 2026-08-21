@@ -137,6 +137,29 @@ export async function updateProblemReportStatus(id, status) {
   check(await supabase.from('problem_reports').update({ status }).eq('id', id))
 }
 
+// One log table for both entity types -- see migration 016. Fetches
+// everything for a type in one query rather than per-card, then callers
+// group by entity_id client-side.
+export async function listInboxActivity(entityType) {
+  return check(
+    await supabase
+      .from('inbox_activity')
+      .select('*')
+      .eq('entity_type', entityType)
+      .order('created_at', { ascending: false })
+  )
+}
+
+export async function addInboxActivity({ entityType, entityId, status = null, note = null }) {
+  return check(
+    await supabase
+      .from('inbox_activity')
+      .insert({ entity_type: entityType, entity_id: entityId, status, note })
+      .select()
+      .single()
+  )
+}
+
 // ---------- vendor staff ----------
 
 export async function listVendorUsers() {

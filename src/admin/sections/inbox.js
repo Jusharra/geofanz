@@ -1,4 +1,11 @@
-import { listPartnerLeads, updatePartnerLeadStatus, listProblemReports, updateProblemReportStatus } from '../lib/data.js'
+import {
+  listPartnerLeads,
+  updatePartnerLeadStatus,
+  listProblemReports,
+  updateProblemReportStatus,
+  listInboxActivity,
+  addInboxActivity,
+} from '../lib/data.js'
 import { escapeHtml } from '../lib/dom.js'
 import { toastSuccess, toastError } from '../lib/toast.js'
 
@@ -23,6 +30,61 @@ function relativeTime(iso) {
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h ago`
   return `${Math.floor(hours / 24)}d ago`
+}
+
+// Groups a flat activity list (one query per entity type, see data.js)
+// into a Map keyed by entity_id so each card can just look up its own.
+function groupByEntity(activity) {
+  const map = new Map()
+  for (const row of activity) {
+    if (!map.has(row.entity_id)) map.set(row.entity_id, [])
+    map.get(row.entity_id).push(row)
+  }
+  return map
+}
+
+function activityFeedHtml(entityId, activityByEntity) {
+  const rows = activityByEntity.get(entityId) ?? []
+  return `
+    <div class="mt-2.5 pt-2.5 border-t border-white/10">
+      <div class="space-y-1 mb-2 max-h-28 overflow-y-auto">
+        ${
+          rows
+            .map(
+              (a) => `
+          <p class="text-xs text-white/40">
+            ${a.status ? `<span class="text-white/60">→ ${escapeHtml(a.status)}</span>` : ''}${a.status && a.note ? ' — ' : ''}${a.note ? escapeHtml(a.note) : ''}
+            <span class="text-white/25">${a.created_by ? ` · ${escapeHtml(a.created_by)}` : ''} · ${relativeTime(a.created_at)}</span>
+          </p>
+        `
+            )
+            .join('') || '<p class="text-xs text-white/25">No activity yet.</p>'
+        }
+      </div>
+      <form data-note-form="${entityId}" class="flex gap-1.5">
+        <input type="text" name="note" placeholder="Add a note…" class="field-input text-xs py-1 flex-1" />
+        <button type="submit" class="btn-secondary text-xs py-1 px-2 shrink-0">Add</button>
+      </form>
+    </div>
+  `
+}
+
+function wireNoteForms(body, entityType, onSaved) {
+  body.querySelectorAll('[data-note-form]').forEach((form) =>
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const input = form.querySelector('[name=note]')
+      const note = input.value.trim()
+      if (!note) return
+      try {
+        await addInboxActivity({ entityType, entityId: form.dataset.noteForm, note })
+        toastSuccess('Note added.')
+        onSaved()
+      } catch (err) {
+        toastError(err.message)
+      }
+    })
+  )
 }
 
 export async function renderInboxSection(container) {
@@ -58,11 +120,13 @@ export async function renderInboxSection(container) {
   )
 
   const body = container.querySelector('#inbox-body')
-  if (activeSubTab === 'leads') renderLeads(body, leads)
-  else renderReports(body, reports)
+  if (activeSubTab === 'leads') await renderLeads(body, leads)
+  else await renderReports(body, reports)
 }
 
-function renderLeads(body, leads) {
+async function renderLeads(body, leads) {
+  const activityByEntity = groupByEntity(await listInboxActivity('partner_lead'))
+
   body.innerHTML = `
     <div class="space-y-2">
       ${leads
@@ -83,6 +147,7 @@ function renderLeads(body, leads) {
               <p class="text-xs text-white/30 mt-1">${relativeTime(l.created_at)}</p>
             </div>
           </div>
+          ${activityFeedHtml(l.id, activityByEntity)}
         </div>
       `
         )
@@ -94,6 +159,7 @@ function renderLeads(body, leads) {
     sel.addEventListener('change', async () => {
       try {
         await updatePartnerLeadStatus(sel.dataset.leadStatus, sel.value)
+        await addInboxActivity({ entityType: 'partner_lead', entityId: sel.dataset.leadStatus, status: sel.value })
         toastSuccess('Lead updated.')
         renderInboxSection(body.parentElement)
       } catch (err) {
@@ -101,9 +167,13 @@ function renderLeads(body, leads) {
       }
     })
   )
+
+  wireNoteForms(body, 'partner_lead', () => renderInboxSection(body.parentElement))
 }
 
-function renderReports(body, reports) {
+async function renderReports(body, reports) {
+  const activityByEntity = groupByEntity(await listInboxActivity('problem_report'))
+
   body.innerHTML = `
     <div class="space-y-2">
       ${reports
@@ -123,6 +193,7 @@ function renderReports(body, reports) {
               <p class="text-xs text-white/30 mt-1">${relativeTime(r.created_at)}</p>
             </div>
           </div>
+          ${activityFeedHtml(r.id, activityByEntity)}
         </div>
       `
         )
@@ -134,6 +205,7 @@ function renderReports(body, reports) {
     sel.addEventListener('change', async () => {
       try {
         await updateProblemReportStatus(sel.dataset.reportStatus, sel.value)
+        await addInboxActivity({ entityType: 'problem_report', entityId: sel.dataset.reportStatus, status: sel.value })
         toastSuccess('Report updated.')
         renderInboxSection(body.parentElement)
       } catch (err) {
@@ -141,4 +213,6 @@ function renderReports(body, reports) {
       }
     })
   )
+
+  wireNoteForms(body, 'problem_report', () => renderInboxSection(body.parentElement))
 }
