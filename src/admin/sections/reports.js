@@ -202,16 +202,18 @@ async function renderChart(chartEl) {
   const fmtHour = (iso) => new Date(iso).toLocaleString(undefined, { weekday: 'short', hour: 'numeric' })
 
   chartEl.innerHTML = `
-    <p class="text-xs text-white/40 mb-3">This is the chart that sells the next game — it shows exactly when the crowd was live, so you know when to staff.</p>
-    <div class="card p-4 flex items-end gap-2 overflow-x-auto" style="height: 220px">
+    <p class="text-sm text-white/40 mb-3">This is the chart that sells the next game — it shows exactly when the crowd was live, so you know when to staff.</p>
+    <div class="card p-4 sm:p-6 flex items-end gap-1.5 sm:gap-2.5 overflow-x-auto h-64 sm:h-80 md:h-96">
       ${rows
         .map((r) => {
-          const h = Math.max(4, Math.round((r.views / max) * 180))
+          // Percentage height (not a fixed px calc) so the bar tracks
+          // whatever the container's actual height is at each breakpoint.
+          const pct = Math.max(3, Math.round((r.views / max) * 100))
           return `
-          <div class="flex flex-col items-center justify-end h-full shrink-0" style="width: 40px" title="${r.views} views, ${r.unique_people} unique, ${r.unlocks} unlocks">
-            <span class="text-[10px] text-white/50 mb-1">${r.views}</span>
-            <div class="w-full bg-hot rounded-t" style="height: ${h}px"></div>
-            <span class="text-[10px] text-white/40 mt-1 whitespace-nowrap">${fmtHour(r.hour)}</span>
+          <div class="flex flex-col items-center justify-end h-full shrink-0 flex-1 min-w-[28px] sm:min-w-[40px]" title="${r.views} views, ${r.unique_people} unique, ${r.unlocks} unlocks">
+            <span class="text-xs text-white/50 mb-1">${r.views}</span>
+            <div class="w-full bg-hot rounded-t" style="height: ${pct}%"></div>
+            <span class="text-[10px] sm:text-xs text-white/40 mt-1 whitespace-nowrap">${fmtHour(r.hour)}</span>
           </div>
         `
         })
