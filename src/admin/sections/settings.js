@@ -33,7 +33,7 @@ export async function renderSettingsSection(container) {
 function section(title, bodyHtml) {
   return `
     <section class="card p-5">
-      <h2 class="text-lg font-bold mb-4">${title}</h2>
+      <h2 class="font-condensed font-bold uppercase tracking-wide text-lg mb-4">${title}</h2>
       ${bodyHtml}
     </section>
   `

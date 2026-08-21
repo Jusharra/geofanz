@@ -11,7 +11,7 @@ export async function renderVendorsSection(container) {
     <div class="grid md:grid-cols-2 gap-6">
       <div>
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-bold">Vendors</h2>
+          <h2 class="font-condensed font-bold uppercase tracking-wide text-lg">Vendors</h2>
           <button id="vendor-new" class="btn-primary text-sm py-1.5 px-3">+ New vendor</button>
         </div>
         <div class="space-y-2" id="vendor-list"></div>

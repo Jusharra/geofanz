@@ -30,7 +30,7 @@ export async function renderVenuesSection(container, user) {
     <div class="grid md:grid-cols-2 gap-6">
       <div>
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-bold">Venues</h2>
+          <h2 class="font-condensed font-bold uppercase tracking-wide text-lg">Venues</h2>
           <button id="venue-new" class="btn-primary text-sm py-1.5 px-3">+ New venue</button>
         </div>
         <div class="space-y-2" id="venue-list"></div>

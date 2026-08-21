@@ -21,7 +21,7 @@ export async function renderOffersSection(container) {
     <div class="grid md:grid-cols-2 gap-6">
       <div>
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-bold">Offers</h2>
+          <h2 class="font-condensed font-bold uppercase tracking-wide text-lg">Offers</h2>
           <button id="offer-new" class="btn-primary text-sm py-1.5 px-3">+ New offer</button>
         </div>
         <div class="space-y-2" id="offer-list"></div>

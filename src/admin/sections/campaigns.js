@@ -18,7 +18,7 @@ export async function renderCampaignsSection(container) {
     <div class="grid md:grid-cols-2 gap-6">
       <div>
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-bold">Campaigns</h2>
+          <h2 class="font-condensed font-bold uppercase tracking-wide text-lg">Campaigns</h2>
           <button id="campaign-new" class="btn-primary text-sm py-1.5 px-3">+ New campaign</button>
         </div>
         <div class="space-y-2" id="campaign-list"></div>

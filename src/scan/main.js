@@ -70,7 +70,10 @@ function renderLogin() {
   root.innerHTML = `
     <div class="min-h-dvh flex items-center justify-center px-6">
       <form id="login-form" class="card w-full max-w-sm p-6 space-y-4">
-        <h1 class="text-xl font-black text-center">Hot Hand Buys — Scan</h1>
+        <div class="text-center">
+          <div class="wordmark inline-block">Hot Hand <em>Buys</em></div>
+          <p class="field-label !mb-0 !mt-1">Scan</p>
+        </div>
         <div>
           <label class="field-label" for="login-email">Email</label>
           <input id="login-email" name="email" type="email" required autocomplete="username" class="field-input" />
@@ -103,7 +106,7 @@ function renderForgotPassword() {
   root.innerHTML = `
     <div class="min-h-dvh flex items-center justify-center px-6">
       <form id="forgot-form" class="card w-full max-w-sm p-6 space-y-4">
-        <h1 class="text-xl font-black text-center">Reset your password</h1>
+        <h1 class="font-condensed font-bold uppercase text-xl text-center">Reset your password</h1>
         <div>
           <label class="field-label" for="forgot-email">Email</label>
           <input id="forgot-email" name="email" type="email" required autocomplete="username" class="field-input" />
@@ -135,7 +138,7 @@ function renderResetPassword() {
   root.innerHTML = `
     <div class="min-h-dvh flex items-center justify-center px-6">
       <form id="reset-form" class="card w-full max-w-sm p-6 space-y-4">
-        <h1 class="text-xl font-black text-center">Set a new password</h1>
+        <h1 class="font-condensed font-bold uppercase text-xl text-center">Set a new password</h1>
         <div>
           <label class="field-label" for="new-password">New password</label>
           <input id="new-password" name="password" type="password" required minlength="6" autocomplete="new-password" class="field-input" />
@@ -171,7 +174,7 @@ function renderSetPassword() {
   root.innerHTML = `
     <div class="min-h-dvh flex items-center justify-center px-6">
       <form id="set-password-form" class="card w-full max-w-sm p-6 space-y-4">
-        <h1 class="text-xl font-black text-center">Welcome — set a password</h1>
+        <h1 class="font-condensed font-bold uppercase text-xl text-center">Welcome — set a password</h1>
         <p class="text-sm text-white/50 text-center">You're in. Set a password now so you can sign back in next time.</p>
         <div>
           <label class="field-label" for="sp-password">Password</label>
@@ -214,12 +217,15 @@ async function renderScanner(vendorUser) {
 
   root.innerHTML = `
     <div class="min-h-dvh flex flex-col">
-      <header class="border-b border-white/10 px-4 py-3 flex items-center justify-between">
-        <div>
-          <p class="text-xs text-white/40 uppercase tracking-wide">Scanning for</p>
-          <p class="font-bold">${vendorLabel}</p>
+      <header class="app-header px-4 py-2.5 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="wordmark shrink-0">Hot Hand <em>Buys</em></div>
+          <div class="min-w-0">
+            <p class="field-label !mb-0 !text-[10px]">Scanning for</p>
+            <p class="font-condensed font-bold text-sm truncate">${vendorLabel}</p>
+          </div>
         </div>
-        <button id="sign-out" class="text-sm px-3 py-1.5 rounded-lg bg-white/10">Sign out</button>
+        <button id="sign-out" class="btn-secondary text-xs py-1.5 px-3 shrink-0">Sign out</button>
       </header>
 
       <main class="flex-1 flex flex-col items-center justify-center px-4 py-6 gap-6">
@@ -339,8 +345,8 @@ async function handleScan(tokenOrCode, saleAmount) {
   resultEl.classList.remove('hidden')
   resultEl.innerHTML = `
     <div class="rounded-2xl p-6 text-center ${isOk ? 'bg-green-600' : 'bg-red-600'}">
-      <p class="text-3xl font-black">${isOk ? 'REDEEMED' : escapeHtml(result.message ?? 'Error')}</p>
-      ${result.offer_head ? `<p class="mt-2 font-semibold">${escapeHtml(result.offer_head)}</p>` : ''}
+      <p class="font-display uppercase text-3xl tracking-wide">${isOk ? 'Redeemed' : escapeHtml(result.message ?? 'Error')}</p>
+      ${result.offer_head ? `<p class="mt-2 font-condensed font-bold">${escapeHtml(result.offer_head)}</p>` : ''}
       ${result.deal_text ? `<p class="text-sm opacity-80">${escapeHtml(result.deal_text)}</p>` : ''}
     </div>
     <button id="scan-next" class="btn-secondary w-full mt-3">Scan next</button>

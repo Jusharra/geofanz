@@ -9,7 +9,7 @@ export async function renderStaffSection(container) {
   container.innerHTML = `
     <div class="grid md:grid-cols-2 gap-6">
       <div>
-        <h2 class="text-lg font-bold mb-3">Vendor staff</h2>
+        <h2 class="font-condensed font-bold uppercase tracking-wide text-lg mb-3">Vendor staff</h2>
         <p class="text-sm text-white/50 mb-3">Staff accounts sign in at <code class="text-hot">/scan</code> and can only redeem codes for their own business.</p>
         <div class="space-y-2" id="staff-list"></div>
       </div>

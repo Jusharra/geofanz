@@ -30,7 +30,7 @@ export async function renderActivitySection(container) {
 
   container.innerHTML = `
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-lg font-bold">Activity</h2>
+      <h2 class="font-condensed font-bold uppercase tracking-wide text-lg">Activity</h2>
       <button id="refresh-activity" class="btn-secondary text-sm py-1.5 px-3">Refresh</button>
     </div>
     <p class="text-sm text-white/50 mb-4">The last 300 real events across every fan and vendor interaction — newest first.</p>

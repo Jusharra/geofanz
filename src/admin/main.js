@@ -103,7 +103,10 @@ function renderLogin() {
   root.innerHTML = `
     <div class="min-h-dvh flex items-center justify-center px-6">
       <form id="login-form" class="card w-full max-w-sm p-6 space-y-4">
-        <h1 class="text-xl font-black text-center">Hot Hand Buys — Admin</h1>
+        <div class="text-center">
+          <div class="wordmark inline-block">Hot Hand <em>Buys</em></div>
+          <p class="field-label !mb-0 !mt-1">Admin</p>
+        </div>
         <div>
           <label class="field-label" for="login-email">Email</label>
           <input id="login-email" name="email" type="email" required autocomplete="username" class="field-input" />
@@ -138,7 +141,7 @@ function renderForgotPassword() {
   root.innerHTML = `
     <div class="min-h-dvh flex items-center justify-center px-6">
       <form id="forgot-form" class="card w-full max-w-sm p-6 space-y-4">
-        <h1 class="text-xl font-black text-center">Reset your password</h1>
+        <h1 class="font-condensed font-bold uppercase text-xl text-center">Reset your password</h1>
         <p class="text-sm text-white/50 text-center">Enter your email and we'll send a reset link.</p>
         <div>
           <label class="field-label" for="forgot-email">Email</label>
@@ -174,7 +177,7 @@ function renderResetPassword() {
   root.innerHTML = `
     <div class="min-h-dvh flex items-center justify-center px-6">
       <form id="reset-form" class="card w-full max-w-sm p-6 space-y-4">
-        <h1 class="text-xl font-black text-center">Set a new password</h1>
+        <h1 class="font-condensed font-bold uppercase text-xl text-center">Set a new password</h1>
         <div>
           <label class="field-label" for="new-password">New password</label>
           <input id="new-password" name="password" type="password" required minlength="6" autocomplete="new-password" class="field-input" />
@@ -227,8 +230,11 @@ function renderDashboard(user) {
 
   root.innerHTML = `
     <div class="min-h-dvh">
-      <header class="border-b border-white/10 px-4 py-3 flex items-center justify-between gap-3">
-        <h1 class="font-black">Hot Hand Buys — Admin</h1>
+      <header class="app-header px-4 py-2.5 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <div class="wordmark">Hot Hand <em>Buys</em></div>
+          <span class="field-label !mb-0 text-chalk">Admin</span>
+        </div>
         <div class="flex items-center gap-3">
           <button data-tab="settings" class="flex items-center gap-2 hover:opacity-80" title="Settings">
             <span class="avatar-preview !w-8 !h-8 !text-xs">
@@ -239,11 +245,11 @@ function renderDashboard(user) {
           <button id="sign-out" class="btn-secondary text-sm py-1.5 px-3">Sign out</button>
         </div>
       </header>
-      <nav class="flex flex-wrap gap-1 px-4 pt-3 border-b border-white/10">
+      <nav class="flex flex-wrap gap-1 px-4 pt-3 border-b border-line">
         ${TABS.map(
           (t) => `
           <button data-tab="${t.id}"
-            class="px-3 py-2 text-sm font-semibold rounded-t-lg whitespace-nowrap transition-colors ${
+            class="px-3 py-2 font-condensed font-bold uppercase tracking-wide text-xs rounded-t-lg whitespace-nowrap transition-colors ${
               t.id === activeTab ? 'bg-surface text-white' : 'text-white/40 hover:text-white/70'
             }">${t.label}</button>
         `

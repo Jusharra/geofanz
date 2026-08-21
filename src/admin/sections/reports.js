@@ -17,7 +17,7 @@ export async function renderReportsSection(container) {
       ${SUB_TABS.map(
         (t) => `
         <button data-subtab="${t.id}"
-          class="px-3 py-2 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${
+          class="px-3 py-2 font-condensed font-bold uppercase tracking-wide text-xs whitespace-nowrap border-b-2 -mb-px transition-colors ${
             activeSubTab === t.id ? 'text-white border-hot' : 'text-white/40 border-transparent hover:text-white/70'
           }">${t.label}</button>
       `
