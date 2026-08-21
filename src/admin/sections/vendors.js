@@ -49,6 +49,15 @@ export async function renderVendorsSection(container) {
               <option value="canceled">Canceled</option>
             </select>
           </div>
+          <div>
+            <label class="field-label" for="report_frequency">Report emails</label>
+            <select id="report_frequency" name="report_frequency" class="field-select">
+              <option value="none">Off — send manually only</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            <p class="field-hint">Needs an email above. You can always send one on demand from Reports.</p>
+          </div>
           <label class="switch">
             <input type="checkbox" name="active" checked />
             <span class="track"><span class="thumb"></span></span>
@@ -79,7 +88,7 @@ function renderList(container, vendors) {
       <div class="flex items-center justify-between card px-3 py-2.5">
         <div>
           <p class="font-semibold text-sm">${escapeHtml(v.dba_name)} ${v.active ? '' : '<span class="text-white/30">(inactive)</span>'}</p>
-          <p class="text-xs text-white/40">${v.billing_status} · ${escapeHtml(v.city ?? '')}</p>
+          <p class="text-xs text-white/40">${v.billing_status} · ${escapeHtml(v.city ?? '')}${v.report_frequency && v.report_frequency !== 'none' ? ` · ${v.report_frequency} reports` : ''}</p>
         </div>
         <div class="flex gap-2 shrink-0">
           <button data-edit="${v.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Edit</button>
@@ -121,6 +130,7 @@ function wireForm(container) {
       phone: fd.get('phone') || null,
       city: fd.get('city') || null,
       billing_status: fd.get('billing_status'),
+      report_frequency: fd.get('report_frequency'),
       active: fd.get('active') === 'on',
     }
     if (editingId) payload.id = editingId
@@ -145,6 +155,7 @@ function fillForm(container, vendor) {
   form.querySelector('[name=phone]').value = vendor.phone ?? ''
   form.querySelector('[name=city]').value = vendor.city ?? ''
   form.querySelector('[name=billing_status]').value = vendor.billing_status ?? 'trial'
+  form.querySelector('[name=report_frequency]').value = vendor.report_frequency ?? 'none'
   form.querySelector('[name=active]').checked = !!vendor.active
 }
 

@@ -1,6 +1,7 @@
-import { listCampaignReports, listCampaignHourly, listVenueDiagnostics, listTokenIntegrity, listVendors } from '../lib/data.js'
+import { listCampaignReports, listCampaignHourly, listVenueDiagnostics, listTokenIntegrity, listVendors, sendVendorReportNow } from '../lib/data.js'
 import { escapeHtml } from '../lib/dom.js'
 import { downloadCsv } from '../lib/csv.js'
+import { toastSuccess, toastError } from '../lib/toast.js'
 
 let activeSubTab = 'vendor'
 let selectedCampaignId = null
@@ -66,9 +67,15 @@ async function renderVendorReport(body) {
           <option value="">All vendors</option>
           ${filterableVendors.map((v) => `<option value="${v.id}" ${v.id === selectedVendorId ? 'selected' : ''}>${escapeHtml(v.dba_name)}</option>`).join('')}
         </select>
-        <p class="text-sm text-white/50">${selectedVendor ? `What ${escapeHtml(selectedVendor.dba_name)} sees when they ask for their numbers.` : 'What a vendor sees when you hand them this on Monday.'}</p>
+        <p class="text-sm text-white/50">
+          ${selectedVendor ? `What ${escapeHtml(selectedVendor.dba_name)} sees when they ask for their numbers.` : 'What a vendor sees when you hand them this on Monday.'}
+          ${selectedVendor?.last_report_sent_at ? `<span class="text-white/30"> · last emailed ${new Date(selectedVendor.last_report_sent_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>` : ''}
+        </p>
       </div>
-      <button id="export-csv" class="btn-secondary text-sm py-1.5 px-3">Download CSV</button>
+      <div class="flex gap-2">
+        ${selectedVendor ? `<button id="send-report" class="btn-secondary text-sm py-1.5 px-3">Email ${escapeHtml(selectedVendor.dba_name)} their report</button>` : ''}
+        <button id="export-csv" class="btn-secondary text-sm py-1.5 px-3">Download CSV</button>
+      </div>
     </div>
     <div class="overflow-x-auto rounded-xl border border-white/10">
       <table class="w-full text-sm">
@@ -130,6 +137,21 @@ async function renderVendorReport(body) {
     // vendor_id is useful for admin filtering but meaningless to a vendor
     // reading a CSV -- drop it from what actually gets exported.
     downloadCsv(filename, rows.map(({ vendor_id, ...rest }) => rest))
+  })
+
+  body.querySelector('#send-report')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget
+    btn.disabled = true
+    btn.textContent = 'Sending…'
+    try {
+      const result = await sendVendorReportNow(selectedVendor.id)
+      toastSuccess(`Report emailed to ${result.sentTo}.`)
+      renderVendorReport(body)
+    } catch (err) {
+      toastError(err.message)
+      btn.disabled = false
+      btn.textContent = `Email ${selectedVendor.dba_name} their report`
+    }
   })
 }
 

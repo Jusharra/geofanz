@@ -242,3 +242,46 @@ ships first because it's fast. A one-page PDF (vendor name, the four big
 numbers, the hourly chart) is what actually sells a taco-truck renewal —
 nobody there opens a CSV — but it's deliberately deferred until there's a
 game's worth of real data to design the layout around.
+
+---
+
+## Vendor reports — per-vendor, filtered, and (optionally) emailed
+
+Reports in admin were originally one shared table for everyone. Two
+problems with that: a vendor asking "can you show me my numbers" got
+handed a screen with every other vendor's numbers on it too, and there
+was no way to just hand a vendor their own report without a manual
+export-and-trim step every time.
+
+`src/admin/sections/reports.js` now has a vendor filter (`supabase/migrations/015_vendor_report_schedule.sql`
+underlies this — `vendors.report_frequency` and `vendors.last_report_sent_at`)
+scoping both the on-screen table and the CSV export to one vendor at a
+time. Same convention as `is_vendor_user()` everywhere else: diagnostics
+and token-integrity tabs stay admin-only and are never vendor-scoped —
+they're internal fraud/fence-tuning signals, not vendor performance.
+
+Emailing a vendor their report has two triggers, same template
+(`netlify/functions/lib/vendor-report-html.js`), both going through
+SendGrid (`netlify/functions/lib/sendgrid.js`):
+
+1. **"Send now"** (`netlify/functions/send-vendor-report.js`) — a button
+   next to the vendor filter in Reports. For the "vendor calls and wants
+   their numbers today" case. Auth model matches `invite-vendor.js`: the
+   caller's JWT identifies them, anyone with no `vendor_users` row is the
+   admin and is the only one allowed to trigger a send.
+2. **Scheduled** (`netlify/functions/scheduled-vendor-reports.js`, cron
+   `@daily` via `netlify.toml`) — checks every vendor with
+   `report_frequency` set to `weekly` or `monthly` and
+   `last_report_sent_at` far enough in the past, sends, stamps the
+   timestamp. `report_frequency` defaults to `none` (manual only); it's
+   set per vendor on the vendor form in `src/admin/sections/vendors.js`.
+
+`SENDGRID_API_KEY` / `SENDGRID_FROM_EMAIL` are server-side-only Netlify
+env vars (never reach the browser, same rule as the service role key).
+`SENDGRID_FROM_EMAIL` just needs to be a SendGrid-verified single sender
+to start — a Gmail address works fine for testing. Switching to a real
+`@hothandbuys.us` sender later means adding SPF/DKIM records for that
+domain in SendGrid, which should wait until the `hothandbuys.us` DNS
+situation is sorted (the domain is mid-transfer as of writing and was
+briefly pointed at an unrelated Shopify store — worth confirming it
+resolves to Netlify before adding more DNS records on top of it).

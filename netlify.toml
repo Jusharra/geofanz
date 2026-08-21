@@ -3,6 +3,9 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[functions."scheduled-vendor-reports"]
+  schedule = "@daily"
+
 [[redirects]]
   from = "/admin"
   to = "/admin.html"
