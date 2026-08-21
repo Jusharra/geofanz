@@ -88,14 +88,34 @@ async function logImpression({
 
 // ---------- rendering ----------
 
-function shell(bodyHtml) {
+// ctx = { where, endsAt } to show the venue/countdown bar (offers + empty
+// states only, matching the brand reference -- loading/denied/outside just
+// get the bare header). live = show the pulsing "Live Now" / custom label.
+function shell(bodyHtml, { ctx = null, live = null } = {}) {
   app.innerHTML = `
     <div class="min-h-dvh flex flex-col">
+      <header class="sticky top-0 z-50 bg-bg border-b-[3px] border-hot px-4 py-2.5 flex items-center justify-between gap-3">
+        <div class="font-display text-[19px] uppercase tracking-tight leading-none">Hot Hand <span class="text-hot">Buys</span></div>
+        ${live ? `
+          <div class="flex items-center gap-1.5 font-condensed font-bold uppercase tracking-[.14em] text-[11px] text-live shrink-0">
+            <span class="w-[7px] h-[7px] rounded-full bg-live animate-pulse"></span>${escapeHtml(live)}
+          </div>` : ''}
+      </header>
+      ${ctx ? `
+        <div class="bg-surface border-b border-line px-4 py-[9px] flex items-center justify-between gap-3">
+          <div class="font-condensed font-semibold uppercase tracking-[.1em] text-xs text-chalk truncate">${escapeHtml(ctx.where)}</div>
+          ${ctx.endsAt ? `
+            <div class="text-right shrink-0">
+              <span class="block font-condensed font-bold text-[10px] tracking-[.12em] text-chalk -mb-0.5">Ends in</span>
+              <span class="font-display text-[13px] text-hot tabular-nums" data-ctx-countdown="${ctx.endsAt}">…</span>
+            </div>` : ''}
+        </div>` : ''}
       ${devBannerHtml()}
-      <main class="flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
+      <main class="flex-1 flex flex-col items-center justify-center px-4 text-center gap-6 py-8">
         ${bodyHtml}
       </main>
       <footer class="site-footer">
+        <div class="font-display text-[13px] uppercase tracking-wide text-chalk mb-[11px]">Hot Hand Buys</div>
         <nav>
           <a href="/how-it-works">How It Works</a>
           <a href="/vendors">For Vendors</a>
@@ -103,10 +123,32 @@ function shell(bodyHtml) {
           <a href="/terms">Terms</a>
           <a href="/report">Report a Problem</a>
         </nav>
+        <p class="text-[11.5px] text-white/35 leading-relaxed max-w-xs mx-auto mt-3">Deals are honored by the businesses offering them. We check your location once to unlock deals — we don't track you.</p>
       </footer>
     </div>
   `
   wireDevBanner()
+  startCtxCountdown()
+}
+
+function startCtxCountdown() {
+  const el = document.querySelector('[data-ctx-countdown]')
+  if (!el) return
+  const iso = el.dataset.ctxCountdown
+  const tick = () => {
+    const diffMs = new Date(iso).getTime() - Date.now()
+    if (diffMs <= 0) {
+      el.textContent = 'Ended'
+      return
+    }
+    const h = Math.floor(diffMs / 3600000)
+    const m = Math.floor((diffMs % 3600000) / 60000)
+    const s = Math.floor((diffMs % 60000) / 1000)
+    const pad = (n) => String(n).padStart(2, '0')
+    el.textContent = h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
+    setTimeout(tick, 1000)
+  }
+  tick()
 }
 
 function devBannerHtml() {
@@ -142,25 +184,26 @@ function wireDevBanner() {
 
 function renderLoading() {
   shell(`
-    <div class="animate-pulse w-10 h-10 rounded-full bg-hot"></div>
-    <p class="text-lg text-white/70">Checking your location…</p>
+    <div class="w-[34px] h-[34px] rounded-full border-[3px] border-line border-t-hot animate-spin"></div>
+    <div>
+      <h1 class="font-condensed font-bold uppercase text-[29px] leading-[1.08]">Checking your location</h1>
+      <p class="text-[15px] text-white/60 mt-2">One second.</p>
+    </div>
   `)
 }
 
 function renderOffers(offers, geo) {
   const venueName = offers[0]?.venue_name ?? 'this venue'
+  const earliestEndsAt = offers
+    .map((o) => o.ends_at)
+    .sort((a, b) => new Date(a) - new Date(b))[0]
+
   const cards = offers
     .map(
       (o) => `
-      <article class="w-full max-w-md bg-surface rounded-2xl p-5 text-left border border-white/10">
-        <p class="text-xs uppercase tracking-wide text-white/40">${escapeHtml(o.vendor_name)}</p>
-        <h2 class="text-2xl font-extrabold mt-1">${escapeHtml(o.headline)}</h2>
-        ${o.deal_text ? `<p class="text-hot font-bold text-lg mt-1">${escapeHtml(o.deal_text)}</p>` : ''}
-        ${o.stakes ? `<p class="text-hot/90 text-sm font-semibold mt-1">${escapeHtml(o.stakes)}</p>` : ''}
-        ${o.description ? `<p class="text-white/60 text-sm mt-2">${escapeHtml(o.description)}</p>` : ''}
-        ${o.proof ? `<p class="text-white/40 text-xs italic mt-2">${escapeHtml(o.proof)}</p>` : ''}
-        ${o.media_url && !o.video_url ? `<img src="${escapeHtml(o.media_url)}" alt="" class="mt-4 w-full rounded-xl aspect-video object-cover" />` : ''}
-        ${o.video_url ? `<div class="mt-4 rounded-xl overflow-hidden bg-black aspect-video" data-video-slot="${o.offer_id}">
+      <article class="w-full max-w-md bg-surface border border-line text-left overflow-hidden">
+        ${o.media_url && !o.video_url ? `<img src="${escapeHtml(o.media_url)}" alt="" class="w-full aspect-video object-cover" />` : ''}
+        ${o.video_url ? `<div class="aspect-video bg-black relative" data-video-slot="${o.offer_id}">
           <button type="button" data-play-video="${o.offer_id}" class="relative w-full h-full block">
             ${o.video_poster_url ? `<img src="${escapeHtml(o.video_poster_url)}" alt="" class="w-full h-full object-cover" />` : ''}
             <span class="absolute inset-0 flex items-center justify-center bg-black/20">
@@ -170,30 +213,35 @@ function renderOffers(offers, geo) {
             </span>
           </button>
         </div>` : ''}
-        <p class="text-xs text-white/30 mt-4" data-ends-at="${o.ends_at}">Ends in …</p>
-        ${!o.cta_url ? `<div class="mt-4" data-code-slot="${o.offer_id}">
-          ${o.action ? `<p class="text-white/50 text-xs mb-2">${escapeHtml(o.action)}</p>` : ''}
-          <button type="button" data-unlock="${o.offer_id}"
-            class="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold tracking-wide transition">
-            Tap to unlock
-          </button>
-        </div>` : ''}
-        ${o.cta_url ? `<a href="${escapeHtml(o.cta_url)}" target="_blank" rel="noopener" data-cta="${o.offer_id}"
-          class="mt-4 block w-full py-3 rounded-xl bg-hot text-center font-bold tracking-wide">
-          ${ctaLabel(o.offer_type)}
-        </a>` : ''}
+        <div class="p-[15px]">
+          <p class="font-condensed font-bold uppercase tracking-[.14em] text-[11px] text-hot mb-[5px]">${escapeHtml(o.vendor_name)}</p>
+          <h2 class="font-condensed font-bold uppercase text-2xl leading-[1.05] tracking-tight">${escapeHtml(o.headline)}</h2>
+          ${o.deal_text ? `<p class="text-hot font-bold text-lg mt-[7px]">${escapeHtml(o.deal_text)}</p>` : ''}
+          ${o.stakes ? `<p class="text-hot/90 text-sm font-semibold mt-1">${escapeHtml(o.stakes)}</p>` : ''}
+          ${o.description ? `<p class="text-[14px] leading-[1.45] text-[#c7bfb9] mt-[7px]">${escapeHtml(o.description)}</p>` : ''}
+          ${o.proof ? `<p class="text-chalk text-xs italic mt-2">${escapeHtml(o.proof)}</p>` : ''}
+          ${o.action ? `<p class="text-[12.5px] text-chalk mt-[9px] flex items-center gap-1.5"><span class="text-hot">◆</span>${escapeHtml(o.action)}</p>` : ''}
+          ${!o.cta_url ? `<div class="mt-[13px]" data-code-slot="${o.offer_id}">
+            <button type="button" data-unlock="${o.offer_id}"
+              class="w-full py-[14px] bg-hot hover:brightness-110 active:bg-hot-dim font-display uppercase tracking-wide text-[15px] transition">
+              Unlock this deal
+            </button>
+          </div>` : ''}
+          ${o.cta_url ? `<a href="${escapeHtml(o.cta_url)}" target="_blank" rel="noopener" data-cta="${o.offer_id}"
+            class="mt-[13px] block w-full py-[14px] bg-hot hover:brightness-110 active:bg-hot-dim text-center font-display uppercase tracking-wide text-[15px] transition">
+            ${ctaLabel(o.offer_type)}
+          </a>` : ''}
+        </div>
       </article>
     `
     )
     .join('')
 
-  shell(`
-    <p class="text-sm text-white/50">${escapeHtml(venueName)}</p>
-    <h1 class="text-3xl font-black">Deals live right now</h1>
-    <div class="w-full flex flex-col items-center gap-4">${cards}</div>
-  `)
+  shell(
+    `<div class="w-full flex flex-col items-center gap-3">${cards}</div>`,
+    { live: 'Live Now', ctx: { where: venueName, endsAt: earliestEndsAt } }
+  )
 
-  startCountdowns()
   wireUnlock(offers, geo)
   wireVideo(offers, geo)
   wireCta(offers, geo)
@@ -309,11 +357,11 @@ function wireUnlock(offers, geo) {
 
       const qrDataUrl = await tokenToDataUrl(result.token)
       slot.innerHTML = `
-        <div class="rounded-xl bg-white p-4 text-center animate-reveal">
-          <img src="${qrDataUrl}" alt="Redemption QR code" class="mx-auto w-full max-w-[220px]" />
-          <p class="text-black/40 text-xs uppercase tracking-widest mt-3">Show this at the register</p>
-          <p class="text-black font-black text-2xl tracking-widest mt-1">${escapeHtml(result.short_code)}</p>
-          <p class="text-black/40 text-xs mt-1" data-token-expires></p>
+        <div class="bg-paper p-[26px] text-center animate-reveal">
+          <p class="font-condensed font-bold uppercase tracking-[.16em] text-[11px] text-[#6e6560]">Show this to the vendor</p>
+          <img src="${qrDataUrl}" alt="Redemption QR code" class="mx-auto w-full max-w-[190px] border-[5px] border-bg mt-4 mb-[14px]" />
+          <p class="font-display text-black text-[38px] tracking-[.09em] tabular-nums">${escapeHtml(result.short_code)}</p>
+          <p class="text-[#6e6560] text-[13px] mt-[11px]" data-token-expires></p>
         </div>
       `
       startSingleCountdown(slot.querySelector('[data-token-expires]'), result.expires_at)
@@ -337,50 +385,50 @@ function startSingleCountdown(el, iso) {
   tick()
 }
 
-function renderEmpty(venueName) {
+function stateScreen({ mark, heading, body, buttonLabel, fine, onButton }) {
   shell(`
-    <h1 class="text-2xl font-bold">Nothing running right now</h1>
-    <p class="text-white/50 max-w-sm">${escapeHtml(venueName ?? 'this venue')} doesn't have an active deal at the moment. Check back once the game gets going.</p>
+    <div class="font-display text-hot text-[44px] leading-none">${mark}</div>
+    <div>
+      <h1 class="font-condensed font-bold uppercase text-[29px] leading-[1.08]">${heading}</h1>
+      <p class="text-[15px] leading-[1.55] text-[#b5aca6] mt-[11px] max-w-[280px] mx-auto">${body}</p>
+    </div>
+    ${buttonLabel ? `<button id="state-btn" class="w-full max-w-[280px] py-[14px] bg-hot hover:brightness-110 active:bg-hot-dim font-display uppercase tracking-wide text-[15px] transition">${buttonLabel}</button>` : ''}
+    ${fine ? `<p class="text-[12.5px] text-chalk leading-relaxed">${fine}</p>` : ''}
   `)
+  if (onButton) document.getElementById('state-btn')?.addEventListener('click', onButton)
+}
+
+function renderEmpty(venueName) {
+  shell(
+    `
+    <div>
+      <h1 class="font-condensed font-bold uppercase text-[29px] leading-[1.08]">Nothing running right now</h1>
+      <p class="text-[15px] leading-[1.55] text-[#b5aca6] mt-[11px] max-w-[280px] mx-auto">Check back once the game gets going — deals here come and go all day.</p>
+    </div>
+  `,
+    { ctx: { where: venueName ?? 'This venue' } }
+  )
 }
 
 function renderOutside() {
-  shell(`
-    <h1 class="text-2xl font-bold">You're not at a venue</h1>
-    <p class="text-white/50 max-w-sm">Deals unlock at the stadium. Head to the venue during a live event and reload this page.</p>
-  `)
+  stateScreen({
+    mark: '◎',
+    heading: "You're not at a venue yet",
+    body: 'These deals only work inside the stadium and the lots around it. Head over and check again — they\'re live until the event ends.',
+    buttonLabel: 'Check again',
+    onButton: run,
+  })
 }
 
 function renderDenied(retry) {
-  shell(`
-    <h1 class="text-2xl font-bold">Location access needed</h1>
-    <p class="text-white/50 max-w-sm">We use your location only to check whether you're inside the venue right now — nothing is stored beyond that. It's not saved to an account or shared.</p>
-    <button id="retry-btn" class="px-6 py-3 rounded-full bg-hot font-bold">Try again</button>
-  `)
-  document.getElementById('retry-btn')?.addEventListener('click', retry)
-}
-
-function startCountdowns() {
-  const els = [...document.querySelectorAll('[data-ends-at]')]
-  if (els.length === 0) return
-  const tick = () => {
-    const now = Date.now()
-    let anyLive = false
-    for (const el of els) {
-      const endsAt = new Date(el.dataset.endsAt).getTime()
-      const diffMs = endsAt - now
-      if (diffMs <= 0) {
-        el.textContent = 'Ended'
-        continue
-      }
-      anyLive = true
-      const mins = Math.floor(diffMs / 60000)
-      const secs = Math.floor((diffMs % 60000) / 1000)
-      el.textContent = mins > 0 ? `Ends in ${mins}m ${secs}s` : `Ends in ${secs}s`
-    }
-    if (anyLive) requestAnimationFrame(() => setTimeout(tick, 1000))
-  }
-  tick()
+  stateScreen({
+    mark: '◉',
+    heading: 'Deals unlock at the stadium',
+    body: "We check your location once to see if you're at the venue. That's it — we don't track you, and we don't save your address.",
+    buttonLabel: 'Show me the deals',
+    fine: 'Your browser will ask permission next.',
+    onButton: retry,
+  })
 }
 
 function escapeHtml(str) {
