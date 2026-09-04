@@ -73,6 +73,23 @@ function render() {
       return
     }
 
+    // Best-effort notification -- the lead is already saved, so this
+    // never blocks or affects what the fan sees.
+    fetch('/.netlify/functions/notify-inbox-submission', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'partner_lead',
+        fields: {
+          'Business name': fd.get('business_name'),
+          'Contact name': fd.get('contact_name'),
+          'Contact info': fd.get('contact_info'),
+          Sells: fd.get('sells'),
+          'Event interest': fd.get('event_interest'),
+        },
+      }),
+    }).catch(() => {})
+
     root.innerHTML = `
       <h2 class="text-2xl font-black mb-2">Thanks, ${escapeHtml(fd.get('contact_name'))}.</h2>
       <p class="text-white/60 text-sm">We've got your info for <strong class="text-white/85">${escapeHtml(fd.get('business_name'))}</strong> and we'll reach out within one business day.</p>

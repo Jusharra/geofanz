@@ -95,6 +95,21 @@ function render() {
       return
     }
 
+    // Best-effort notification -- the report is already saved, so this
+    // never blocks or affects what the fan sees.
+    fetch('/.netlify/functions/notify-inbox-submission', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'problem_report',
+        fields: {
+          Category: CATEGORIES.find((c) => c.value === fd.get('category'))?.label ?? fd.get('category'),
+          Details: fd.get('details'),
+          'Contact info': fd.get('contact_info'),
+        },
+      }),
+    }).catch(() => {})
+
     root.innerHTML = `
       <h2 class="text-2xl font-black mb-2">Got it.</h2>
       <p class="text-white/60 text-sm">Thanks for the report — we'll look into it.</p>
