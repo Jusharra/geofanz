@@ -278,7 +278,7 @@ business mailbox over SMTP (`netlify/functions/lib/mailer.js`, nodemailer):
 
 Form notifications: `netlify/functions/notify-inbox-submission.js` emails
 new Partner With Us submissions to `vendors@hothandbuys.us` and Report a
-Problem submissions to `hello@hothandbuys.us` (fixed destinations, never
+Problem submissions to `reports@hothandbuys.us` (fixed destinations, never
 client-supplied). Best-effort: the DB insert is what matters, so a mail
 failure never reaches the fan. Reply-To is set to the submitter's email
 when they gave one.

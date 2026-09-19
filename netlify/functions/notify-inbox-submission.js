@@ -13,7 +13,7 @@ import { sendEmail, MailNotConfiguredError } from './lib/mailer.js'
 
 const DESTINATIONS = {
   partner_lead: 'vendors@hothandbuys.us',
-  problem_report: 'hello@hothandbuys.us',
+  problem_report: 'reports@hothandbuys.us',
 }
 
 function escapeHtml(s) {
