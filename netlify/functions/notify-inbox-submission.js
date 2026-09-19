@@ -9,7 +9,7 @@
 // Best-effort only: the DB insert already succeeded by the time this
 // runs (see src/pages/partner.js / report.js), so a failure here is
 // logged, not surfaced to the fan -- they already saw "thanks, got it."
-import { sendEmail } from './lib/sendgrid.js'
+import { sendEmail, MailNotConfiguredError } from './lib/mailer.js'
 
 const DESTINATIONS = {
   partner_lead: 'vendors@hothandbuys.us',
@@ -42,18 +42,26 @@ export const handler = async (event) => {
     .map(([k, v]) => `<tr><td style="padding:4px 10px 4px 0;color:#999;">${escapeHtml(k)}</td><td style="padding:4px 0;">${escapeHtml(v)}</td></tr>`)
     .join('')
 
-  const subject = kind === 'partner_lead' ? 'New Partner With Us submission' : 'New problem report';
+  const subject = kind === 'partner_lead' ? 'New Partner With Us submission' : 'New problem report'
+
+  // If the submitter left an email, make Reply go straight to them.
+  const contact = String(fields?.['Contact info'] ?? '').trim()
+  const replyTo = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(contact) ? contact : undefined
 
   try {
     await sendEmail({
       to,
+      replyTo,
       subject: `Hot Hand Buys — ${subject}`,
       html: `<table role="presentation" style="font-family:Arial,sans-serif;font-size:14px;">${rows}</table><p style="color:#999;font-size:12px;">Full details and status tracking are in the admin Inbox.</p>`,
     })
+    return { statusCode: 200, body: JSON.stringify({ ok: true, emailed: true }) }
   } catch (err) {
-    // Swallow -- see file header. Netlify function logs still capture this.
+    // Swallow -- see file header. Netlify function logs still capture the
+    // detail; the response only says *whether* it sent, never why, since
+    // this endpoint is public.
     console.error('notify-inbox-submission failed:', err.message)
+    const reason = err instanceof MailNotConfiguredError ? 'not_configured' : 'send_failed'
+    return { statusCode: 200, body: JSON.stringify({ ok: true, emailed: false, reason }) }
   }
-
-  return { statusCode: 200, body: JSON.stringify({ ok: true }) }
 }

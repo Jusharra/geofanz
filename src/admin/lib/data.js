@@ -196,7 +196,7 @@ export async function inviteVendorStaff(email, vendorId, role) {
 }
 
 // Server-side only -- goes through the send-vendor-report function so the
-// SendGrid API key never reaches the browser, same pattern as invites.
+// mailbox password never reaches the browser, same pattern as invites.
 export async function sendVendorReportNow(vendorId) {
   const { data: sessionData } = await supabase.auth.getSession()
   const token = sessionData.session?.access_token

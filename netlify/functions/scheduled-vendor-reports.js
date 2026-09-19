@@ -4,7 +4,7 @@
 // each one their campaign_report numbers via the same template as the
 // admin "Send now" button.
 import { createClient } from '@supabase/supabase-js'
-import { sendEmail } from './lib/sendgrid.js'
+import { sendEmail } from './lib/mailer.js'
 import { buildVendorReportHtml } from './lib/vendor-report-html.js'
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL

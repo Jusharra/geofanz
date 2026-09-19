@@ -261,8 +261,8 @@ and token-integrity tabs stay admin-only and are never vendor-scoped —
 they're internal fraud/fence-tuning signals, not vendor performance.
 
 Emailing a vendor their report has two triggers, same template
-(`netlify/functions/lib/vendor-report-html.js`), both going through
-SendGrid (`netlify/functions/lib/sendgrid.js`):
+(`netlify/functions/lib/vendor-report-html.js`), both sending through the
+business mailbox over SMTP (`netlify/functions/lib/mailer.js`, nodemailer):
 
 1. **"Send now"** (`netlify/functions/send-vendor-report.js`) — a button
    next to the vendor filter in Reports. For the "vendor calls and wants
@@ -276,15 +276,21 @@ SendGrid (`netlify/functions/lib/sendgrid.js`):
    timestamp. `report_frequency` defaults to `none` (manual only); it's
    set per vendor on the vendor form in `src/admin/sections/vendors.js`.
 
-`SENDGRID_API_KEY` / `SENDGRID_FROM_EMAIL` are server-side-only Netlify
-env vars (never reach the browser, same rule as the service role key).
-`SENDGRID_FROM_EMAIL` just needs to be a SendGrid-verified single sender
-to start — a Gmail address works fine for testing. Switching to a real
-`@hothandbuys.us` sender later means adding SPF/DKIM records for that
-domain in SendGrid, which should wait until the `hothandbuys.us` DNS
-situation is sorted (the domain is mid-transfer as of writing and was
-briefly pointed at an unrelated Shopify store — worth confirming it
-resolves to Netlify before adding more DNS records on top of it).
+Form notifications: `netlify/functions/notify-inbox-submission.js` emails
+new Partner With Us submissions to `vendors@hothandbuys.us` and Report a
+Problem submissions to `hello@hothandbuys.us` (fixed destinations, never
+client-supplied). Best-effort: the DB insert is what matters, so a mail
+failure never reaches the fan. Reply-To is set to the submitter's email
+when they gave one.
+
+Mail setup: `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` (optional
+`SMTP_FROM`) are server-side-only Netlify env vars — Hostinger mailbox,
+`smtp.hostinger.com:465`. DNS for the domain is Netlify DNS; the Hostinger
+MX (`mx1`/`mx2.hostinger.com`), SPF (`include:_spf.mail.hostinger.com`),
+three DKIM CNAMEs (`hostingermail-a/b/c._domainkey`) and `_dmarc` records
+live there. Only one SPF record may exist — merge any future sender into it
+instead of adding a second. (SendGrid was tried first and dropped: the free
+trial's credits were exhausted and the domain's mail is on Hostinger anyway.)
 
 ---
 

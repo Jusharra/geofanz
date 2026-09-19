@@ -3,7 +3,7 @@
 // caller's own JWT identifies them, and anyone with no vendor_users row
 // of their own is the site admin.
 import { createClient } from '@supabase/supabase-js'
-import { sendEmail } from './lib/sendgrid.js'
+import { sendEmail } from './lib/mailer.js'
 import { buildVendorReportHtml } from './lib/vendor-report-html.js'
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
