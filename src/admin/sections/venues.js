@@ -9,6 +9,10 @@ const VENUE_TYPES = ['stadium', 'arena', 'airport', 'venue', 'test']
 let map, marker, circle
 let editingId = null
 let distanceUnit = 'meters'
+// Overlapping renders (double auth event at boot, rapid tab clicks, save
+// while a previous load is still in flight) each await the venue list, then
+// build a map. Only the newest one is allowed to touch the DOM/map globals.
+let renderSeq = 0
 
 function formatDistance(meters) {
   if (distanceUnit === 'feet') return `${Math.round(meters * 3.28084)}ft`
@@ -18,8 +22,11 @@ function formatDistance(meters) {
 export async function renderVenuesSection(container, user) {
   // Internal re-renders (after save/delete) call this without `user` --
   // keep whatever preference was already resolved instead of resetting it.
+  const seq = ++renderSeq
   if (user) distanceUnit = user.user_metadata?.distance_unit === 'feet' ? 'feet' : 'meters'
   const venues = await listVenues()
+  // A newer render started, or the tab was left, while we were loading.
+  if (seq !== renderSeq || !container.isConnected) return
 
   if (map) {
     map.remove()
@@ -74,11 +81,11 @@ export async function renderVenuesSection(container, user) {
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="field-label" for="v-lat">Latitude</label>
-              <input id="v-lat" name="latitude" required type="number" step="any" class="field-input" />
+              <input id="v-lat" name="latitude" required type="number" step="any" min="-90" max="90" class="field-input" />
             </div>
             <div>
               <label class="field-label" for="v-lng">Longitude</label>
-              <input id="v-lng" name="longitude" required type="number" step="any" class="field-input" />
+              <input id="v-lng" name="longitude" required type="number" step="any" min="-180" max="180" class="field-input" />
             </div>
           </div>
 
@@ -166,7 +173,16 @@ function initMap(container) {
   })
 
   // Vite renders the map div at 0 height during the initial layout pass.
-  setTimeout(() => map.invalidateSize(), 50)
+  invalidateSoon()
+}
+
+// The map can be destroyed (tab switch, re-render, sign-out) before this
+// fires; hold a reference and only touch it if it's still the live one.
+function invalidateSoon() {
+  const m = map
+  setTimeout(() => {
+    if (map === m && m) m.invalidateSize()
+  }, 50)
 }
 
 function setLatLngInputs(container, lat, lng) {
@@ -186,9 +202,10 @@ function wireForm(container) {
   const latInput = form.querySelector('[name=latitude]')
   const lngInput = form.querySelector('[name=longitude]')
   const syncMapFromInputs = () => {
+    if (latInput.value === '' || lngInput.value === '') return
     const lat = Number(latInput.value)
     const lng = Number(lngInput.value)
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
       marker.setLatLng([lat, lng])
       circle.setLatLng([lat, lng])
       map.setView([lat, lng])
@@ -244,7 +261,7 @@ function fillForm(container, venue) {
   circle.setLatLng([venue.latitude, venue.longitude])
   circle.setRadius(venue.radius_meters)
   map.setView([venue.latitude, venue.longitude], 15)
-  setTimeout(() => map.invalidateSize(), 50)
+  invalidateSoon()
 }
 
 export function destroyVenuesMap() {

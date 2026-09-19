@@ -62,9 +62,12 @@ function boot() {
     }
 
     if (session) {
-      // Supabase silently refreshes the token in the background; don't yank
-      // the admin back to their landing tab mid-work when that fires.
-      if (currentView === 'dashboard' && event === 'TOKEN_REFRESHED') return
+      // Supabase silently refreshes the token in the background, and re-emits
+      // SIGNED_IN on startup and whenever the tab regains focus; neither
+      // means anything changed, so don't rebuild the dashboard (and wipe a
+      // half-filled form / the venue map) underneath the admin.
+      const isNoop = () => currentView === 'dashboard' && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN')
+      if (isNoop()) return
 
       let user
       try {
@@ -83,6 +86,10 @@ function boot() {
         renderBlocked()
         return
       }
+
+      // Two events (INITIAL_SESSION + SIGNED_IN) land back-to-back at startup
+      // and both get past the check above before either finishes the lookups.
+      if (isNoop()) return
 
       if (!landingTabApplied) {
         landingTabApplied = true
