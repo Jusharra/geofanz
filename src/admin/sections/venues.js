@@ -81,11 +81,11 @@ export async function renderVenuesSection(container, user) {
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="field-label" for="v-lat">Latitude</label>
-              <input id="v-lat" name="latitude" required type="number" step="any" class="field-input" />
+              <input id="v-lat" name="latitude" required inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="36.7378" class="field-input" />
             </div>
             <div>
               <label class="field-label" for="v-lng">Longitude</label>
-              <input id="v-lng" name="longitude" required type="number" step="any" class="field-input" />
+              <input id="v-lng" name="longitude" required inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="-119.7871" class="field-input" />
             </div>
           </div>
 
@@ -193,14 +193,35 @@ function setLatLngInputs(container, lat, lng) {
   container.querySelector('[name=longitude]').value = p.lng.toFixed(6)
 }
 
-function coordinateProblem(lat, lng) {
-  if (!Number.isFinite(lat) || Math.abs(lat) > 90) {
-    return `Latitude has to be a number between -90 and 90 (you entered ${lat}). Fresno is about 36.7.`
+// The lat/lng boxes are plain text (not type="number") on purpose: a number
+// box silently drops characters depending on the keyboard/region, which is
+// how "-119.7899" became -11978995792944772. Accept a "." or "," decimal and
+// the fancy minus some keyboards produce.
+function parseCoord(raw) {
+  const t = String(raw ?? '').trim().replace(/−/g, '-').replace(/\s+/g, '')
+  const s = /^-?\d+,\d+$/.test(t) ? t.replace(',', '.') : t
+  return /^-?(\d+\.?\d*|\.\d+)$/.test(s) ? Number(s) : NaN
+}
+
+// Google Maps hands you "36.7321, -119.7899" in one go; paste it in either box.
+function parseCoordPair(text) {
+  const m = String(text ?? '').trim().match(/^(-?\d+(?:\.\d+)?)(?:\s*;\s*|\s*,\s+|\s+)(-?\d+(?:\.\d+)?)$/)
+  return m ? { lat: m[1], lng: m[2] } : null
+}
+
+function readCoordinates(latRaw, lngRaw) {
+  const lat = parseCoord(latRaw)
+  const lng = parseCoord(lngRaw)
+  if (Number.isNaN(lat) || Math.abs(lat) > 90) {
+    return { problem: `Latitude has to be a number between -90 and 90 (you entered "${latRaw}"). Fresno is about 36.7.` }
   }
-  if (!Number.isFinite(lng) || Math.abs(lng) > 180) {
-    return `Longitude has to be a number between -180 and 180 (you entered ${lng}). Fresno is about -119.8.`
+  if (Number.isNaN(lng) || Math.abs(lng) > 180) {
+    const dropped = !String(lngRaw).includes('.') && String(lngRaw).replace(/\D/g, '').length > 6
+    return {
+      problem: `Longitude has to be a number between -180 and 180 (you entered "${lngRaw}"${dropped ? ' — looks like the decimal point is missing' : ''}). Fresno is about -119.8.`,
+    }
   }
-  return null
+  return { lat, lng }
 }
 
 function wireForm(container) {
@@ -216,23 +237,31 @@ function wireForm(container) {
   const lngInput = form.querySelector('[name=longitude]')
   const syncMapFromInputs = () => {
     if (latInput.value === '' || lngInput.value === '') return
-    const lat = Number(latInput.value)
-    const lng = Number(lngInput.value)
-    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
-      marker.setLatLng([lat, lng])
-      circle.setLatLng([lat, lng])
-      map.setView([lat, lng])
-    }
+    const { lat, lng, problem } = readCoordinates(latInput.value, lngInput.value)
+    if (problem) return
+    marker.setLatLng([lat, lng])
+    circle.setLatLng([lat, lng])
+    map.setView([lat, lng])
   }
   latInput.addEventListener('change', syncMapFromInputs)
   lngInput.addEventListener('change', syncMapFromInputs)
+  ;[latInput, lngInput].forEach((input) =>
+    input.addEventListener('paste', (e) => {
+      const pair = parseCoordPair(e.clipboardData?.getData('text'))
+      if (!pair) return
+      e.preventDefault()
+      latInput.value = pair.lat
+      lngInput.value = pair.lng
+      syncMapFromInputs()
+    })
+  )
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
     const errorEl = container.querySelector('#venue-error')
     errorEl.textContent = ''
     const fd = new FormData(form)
-    const problem = coordinateProblem(Number(fd.get('latitude')), Number(fd.get('longitude')))
+    const { lat, lng, problem } = readCoordinates(fd.get('latitude'), fd.get('longitude'))
     if (problem) {
       errorEl.textContent = problem
       toastError(problem)
@@ -245,8 +274,8 @@ function wireForm(container) {
       state_province: fd.get('state_province') || null,
       venue_type: fd.get('venue_type'),
       active: fd.get('active') === 'on',
-      latitude: Number(fd.get('latitude')),
-      longitude: Number(fd.get('longitude')),
+      latitude: lat,
+      longitude: lng,
       radius_meters: Number(fd.get('radius_meters')),
     }
     if (editingId) payload.id = editingId
