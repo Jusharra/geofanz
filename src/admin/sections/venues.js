@@ -81,11 +81,11 @@ export async function renderVenuesSection(container, user) {
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="field-label" for="v-lat">Latitude</label>
-              <input id="v-lat" name="latitude" required type="number" step="any" min="-90" max="90" class="field-input" />
+              <input id="v-lat" name="latitude" required type="number" step="any" class="field-input" />
             </div>
             <div>
               <label class="field-label" for="v-lng">Longitude</label>
-              <input id="v-lng" name="longitude" required type="number" step="any" min="-180" max="180" class="field-input" />
+              <input id="v-lng" name="longitude" required type="number" step="any" class="field-input" />
             </div>
           </div>
 
@@ -186,8 +186,21 @@ function invalidateSoon() {
 }
 
 function setLatLngInputs(container, lat, lng) {
-  container.querySelector('[name=latitude]').value = lat.toFixed(6)
-  container.querySelector('[name=longitude]').value = lng.toFixed(6)
+  // Leaflet reports the raw position on the repeating world map (e.g. -479.7
+  // for -119.7 one world to the west); fold it back into -180..180.
+  const p = L.latLng(lat, lng).wrap()
+  container.querySelector('[name=latitude]').value = Math.max(-90, Math.min(90, p.lat)).toFixed(6)
+  container.querySelector('[name=longitude]').value = p.lng.toFixed(6)
+}
+
+function coordinateProblem(lat, lng) {
+  if (!Number.isFinite(lat) || Math.abs(lat) > 90) {
+    return `Latitude has to be a number between -90 and 90 (you entered ${lat}). Fresno is about 36.7.`
+  }
+  if (!Number.isFinite(lng) || Math.abs(lng) > 180) {
+    return `Longitude has to be a number between -180 and 180 (you entered ${lng}). Fresno is about -119.8.`
+  }
+  return null
 }
 
 function wireForm(container) {
@@ -219,6 +232,12 @@ function wireForm(container) {
     const errorEl = container.querySelector('#venue-error')
     errorEl.textContent = ''
     const fd = new FormData(form)
+    const problem = coordinateProblem(Number(fd.get('latitude')), Number(fd.get('longitude')))
+    if (problem) {
+      errorEl.textContent = problem
+      toastError(problem)
+      return
+    }
     const payload = {
       name: fd.get('name'),
       description: fd.get('description') || null,
