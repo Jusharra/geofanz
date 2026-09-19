@@ -285,3 +285,18 @@ domain in SendGrid, which should wait until the `hothandbuys.us` DNS
 situation is sorted (the domain is mid-transfer as of writing and was
 briefly pointed at an unrelated Shopify store — worth confirming it
 resolves to Netlify before adding more DNS records on top of it).
+
+---
+
+## Domain
+
+Canonical URL is **`https://hothandbuys.us`** (apex, primary in Netlify);
+`www.hothandbuys.us` redirects to it. `hothandbuys.netlify.app` stays live
+as a fallback. No app code hardcodes a domain — pages use relative paths
+and auth redirects use `window.location.origin` / Netlify's `URL` env var
+(which follows the primary domain), so the only place the domain has to be
+kept in sync is **Supabase → Authentication → URL Configuration**: Site URL
+`https://hothandbuys.us`, and the Redirect URLs allow-list must include
+`/admin` and `/scan` on `hothandbuys.us` (password-reset and vendor-invite
+links are rejected otherwise). Sessions are per-origin, so the admin has to
+sign in again the first time on a new domain.
