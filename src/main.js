@@ -192,13 +192,24 @@ function renderLoading() {
   `)
 }
 
+// placement comes from get_live_offers: 'feed' rows are the deal cards,
+// 'utility' rows are on-site needs (roadside, towing) shown as a separate
+// strip. Anything without a placement (older data, dev mock) is a deal.
+function isUtility(o) {
+  return o.placement === 'utility'
+}
+
 function renderOffers(offers, geo) {
+  const feed = offers.filter((o) => !isUtility(o))
+  const utility = offers.filter(isUtility)
+
   const venueName = offers[0]?.venue_name ?? 'this venue'
-  const earliestEndsAt = offers
+  // The countdown is for the deals; a help strip has nothing to count down to.
+  const earliestEndsAt = feed
     .map((o) => o.ends_at)
     .sort((a, b) => new Date(a) - new Date(b))[0]
 
-  const cards = offers
+  const cards = feed
     .map(
       (o) => `
       <article class="w-full max-w-md bg-surface border border-line text-left overflow-hidden">
@@ -237,14 +248,66 @@ function renderOffers(offers, geo) {
     )
     .join('')
 
+  const feedHtml = feed.length
+    ? `<div class="w-full flex flex-col items-center gap-3">${cards}</div>`
+    : emptyNoticeHtml()
+
   shell(
-    `<div class="w-full flex flex-col items-center gap-3">${cards}</div>`,
-    { live: 'Live Now', ctx: { where: venueName, endsAt: earliestEndsAt } }
+    `${feedHtml}${helpStripHtml(utility)}`,
+    {
+      live: feed.length ? 'Live Now' : null,
+      ctx: { where: venueName, endsAt: earliestEndsAt },
+    }
   )
 
   wireUnlock(offers, geo)
   wireVideo(offers, geo)
   wireCta(offers, geo)
+}
+
+// Only links a phone can sensibly act on. cta_url is admin-entered, but this
+// strip is new markup, so don't render anything like javascript: into an href.
+function helpHref(url) {
+  try {
+    const u = new URL(url, location.href)
+    return ['http:', 'https:', 'tel:', 'sms:', 'mailto:'].includes(u.protocol) ? u : null
+  } catch {
+    return null
+  }
+}
+
+// "Need help?" -- utility placements. Deliberately NOT a card: no image, no
+// unlock button, no QR. One line per row, dashed outline, green "+" so it
+// reads as help rather than another ad competing with the deals above it.
+function helpStripHtml(utility) {
+  if (!utility.length) return ''
+  const rows = utility
+    .map((o) => {
+      const href = o.cta_url ? helpHref(o.cta_url) : null
+      const label = `
+        <span class="text-live font-bold shrink-0" aria-hidden="true">+</span>
+        <span class="min-w-0 truncate"><span class="font-semibold text-white">${escapeHtml(o.headline)}</span><span class="text-chalk"> · ${escapeHtml(o.vendor_name)}</span></span>`
+      const base = 'flex items-center gap-2 w-full text-left text-[13.5px] px-3 py-2.5 border border-dashed border-line rounded-lg'
+      return href
+        ? `<a href="${escapeHtml(href.href)}" data-cta="${o.offer_id}" ${href.protocol.startsWith('http') ? 'target="_blank" rel="noopener"' : ''}
+             class="${base} min-h-[44px] hover:border-chalk active:bg-surface transition-colors">${label}<span class="ml-auto text-chalk shrink-0" aria-hidden="true">→</span></a>`
+        : `<div class="${base}">${label}</div>`
+    })
+    .join('')
+
+  return `
+    <section aria-labelledby="help-heading" class="w-full max-w-md mt-auto pt-6 text-left">
+      <h2 id="help-heading" class="font-condensed font-bold uppercase tracking-[.16em] text-[11px] text-chalk mb-2">Need help?</h2>
+      <div class="flex flex-col gap-1.5">${rows}</div>
+    </section>`
+}
+
+function emptyNoticeHtml() {
+  return `
+    <div>
+      <h1 class="font-condensed font-bold uppercase text-[29px] leading-[1.08]">Nothing running right now</h1>
+      <p class="text-[15px] leading-[1.55] text-[#b5aca6] mt-[11px] max-w-[280px] mx-auto">Check back once the game gets going — deals here come and go all day.</p>
+    </div>`
 }
 
 function ctaLabel(offerType) {
@@ -399,15 +462,7 @@ function stateScreen({ mark, heading, body, buttonLabel, fine, onButton }) {
 }
 
 function renderEmpty(venueName) {
-  shell(
-    `
-    <div>
-      <h1 class="font-condensed font-bold uppercase text-[29px] leading-[1.08]">Nothing running right now</h1>
-      <p class="text-[15px] leading-[1.55] text-[#b5aca6] mt-[11px] max-w-[280px] mx-auto">Check back once the game gets going — deals here come and go all day.</p>
-    </div>
-  `,
-    { ctx: { where: venueName ?? 'This venue' } }
-  )
+  shell(emptyNoticeHtml(), { ctx: { where: venueName ?? 'This venue' } })
 }
 
 function renderOutside() {
