@@ -139,6 +139,12 @@ export async function renderOffersSection(container) {
             </div>
           </div>
 
+          <div>
+            <label class="field-label" for="sort_weight">Sort weight</label>
+            <input id="sort_weight" name="sort_weight" type="number" step="1" value="0" inputmode="numeric" class="field-input" />
+            <p class="field-hint">100 = paid top spot, 0 = normal.</p>
+          </div>
+
           <label class="switch">
             <input type="checkbox" name="active" checked />
             <span class="track"><span class="thumb"></span></span>
@@ -169,7 +175,11 @@ function renderList(container, offers) {
       <div class="flex items-center justify-between card px-3 py-2.5">
         <div>
           <p class="font-semibold text-sm">${escapeHtml(o.headline)} ${o.active ? '' : '<span class="text-white/30">(inactive)</span>'}</p>
-          <p class="text-xs text-white/40">${escapeHtml(o.vendors?.dba_name ?? '—')} · ${o.offer_type}${o.video_url ? ` · 🎬 ${o.video_source}` : ''}</p>
+          <p class="text-xs text-white/40">${escapeHtml(o.vendors?.dba_name ?? '—')} · ${o.offer_type}${o.video_url ? ` · 🎬 ${o.video_source}` : ''} · ${
+            o.sort_weight > 0
+              ? `<span class="text-hot font-bold" title="Boosted: sorts above normal offers">▲ weight ${o.sort_weight}</span>`
+              : 'weight 0'
+          }</p>
         </div>
         <div class="flex gap-2 shrink-0">
           <button data-edit="${o.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Edit</button>
@@ -305,6 +315,14 @@ function wireForm(container) {
       return
     }
 
+    // Blank -> 0 (the column is NOT NULL, default 0). Whole numbers only.
+    const rawWeight = String(fd.get('sort_weight') ?? '').trim()
+    const sortWeight = rawWeight === '' ? 0 : Number(rawWeight)
+    if (!Number.isInteger(sortWeight)) {
+      errorEl.textContent = 'Sort weight has to be a whole number (100 = paid top spot, 0 = normal).'
+      return
+    }
+
     const payload = {
       vendor_id: fd.get('vendor_id'),
       headline: fd.get('headline'),
@@ -316,6 +334,7 @@ function wireForm(container) {
       action: fd.get('action'),
       cta_url: fd.get('cta_url') || null,
       media_url: fd.get('media_url') || null,
+      sort_weight: sortWeight,
       active: fd.get('active') === 'on',
       video_source: isVideo ? fd.get('video_source') : null,
       video_url: isVideo ? fd.get('video_url') || null : null,
@@ -348,6 +367,7 @@ function fillForm(container, offer) {
   form.querySelector('[name=action]').value = offer.action ?? ''
   form.querySelector('[name=cta_url]').value = offer.cta_url ?? ''
   form.querySelector('[name=media_url]').value = offer.media_url ?? ''
+  form.querySelector('[name=sort_weight]').value = offer.sort_weight ?? 0
   form.querySelector('[name=active]').checked = !!offer.active
   form.querySelector('[name=video_source]').value = offer.video_source ?? 'embed'
   form.querySelector('[name=video_url]').value = offer.video_url ?? ''
