@@ -5,14 +5,30 @@ import {
   setCampaignVenues,
   listOffers,
   listVenues,
+  listEvents,
 } from '../lib/data.js'
-import { escapeHtml } from '../lib/dom.js'
+import { escapeHtml, toLocalInputValue } from '../lib/dom.js'
 import { toastSuccess, toastError } from '../lib/toast.js'
 
 let editingId = null
+let allEvents = []
+
+const eventDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+const eventLabel = (e) => `${e.name} — ${e.venues?.name ?? '—'} — ${eventDate(e.starts_at)}`
 
 export async function renderCampaignsSection(container) {
-  const [campaigns, offers, venues] = await Promise.all([listCampaigns(), listOffers(), listVenues()])
+  const [campaigns, offers, venues, events] = await Promise.all([
+    listCampaigns(),
+    listOffers(),
+    listVenues(),
+    listEvents(),
+  ])
+  allEvents = events
+  // Offer events that haven't finished and are still active; a campaign
+  // already linked to an older one gets that option added when it's edited.
+  const pickable = events
+    .filter((e) => e.active && new Date(e.ends_at).getTime() >= Date.now())
+    .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))
 
   container.innerHTML = `
     <div class="grid md:grid-cols-2 gap-6">
@@ -30,6 +46,14 @@ export async function renderCampaignsSection(container) {
             <select id="offer_id" name="offer_id" required class="field-select">
               ${offers.map((o) => `<option value="${o.id}">${escapeHtml(o.headline)} — ${escapeHtml(o.vendors?.dba_name ?? '')}</option>`).join('')}
             </select>
+          </div>
+          <div>
+            <label class="field-label" for="event_id">Event (optional)</label>
+            <select id="event_id" name="event_id" class="field-select">
+              <option value="">No event</option>
+              ${pickable.map((e) => `<option value="${e.id}">${escapeHtml(eventLabel(e))}</option>`).join('')}
+            </select>
+            <p class="field-hint">Picking an event fills in the start and end times below and ticks its venue. You can still change them.</p>
           </div>
           <div>
             <label class="field-label" for="c-name">Name</label>
@@ -100,12 +124,13 @@ function renderList(container, campaigns) {
   list.innerHTML = campaigns
     .map((c) => {
       const venueNames = (c.campaign_venues ?? []).map((cv) => cv.venues?.name).filter(Boolean).join(', ')
+      const ev = allEvents.find((e) => e.id === c.event_id)
       const status = c.approved ? 'approved' : 'pending approval'
       return `
       <div class="flex items-center justify-between card px-3 py-2.5">
         <div>
           <p class="font-semibold text-sm">${escapeHtml(c.name || c.offers?.headline || 'Untitled campaign')}</p>
-          <p class="text-xs text-white/40">${escapeHtml(c.vendors?.dba_name ?? '')} · ${status} · ${venueNames || 'no venues'}</p>
+          <p class="text-xs text-white/40">${escapeHtml(c.vendors?.dba_name ?? '')} · ${status} · ${venueNames || 'no venues'}${ev ? ` · <span class="text-hot">${escapeHtml(ev.name)}</span>` : ''}</p>
           <p class="text-xs text-white/30">${formatRange(c.starts_at, c.ends_at)}</p>
         </div>
         <div class="flex gap-2 shrink-0">
@@ -139,14 +164,20 @@ function formatRange(startsAt, endsAt) {
   return `${fmt(startsAt)} → ${fmt(endsAt)}`
 }
 
-function toLocalInputValue(iso) {
-  const d = new Date(iso)
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
 function wireForm(container, offers) {
   const form = container.querySelector('#campaign-form')
+
+  // Choosing an event is a shortcut for the two things it already knows:
+  // when it runs, and where. Overwrites the times; the admin can still edit.
+  form.querySelector('[name=event_id]').addEventListener('change', (e) => {
+    const event = allEvents.find((x) => x.id === e.target.value)
+    if (!event) return
+    form.querySelector('[name=starts_at]').value = toLocalInputValue(event.starts_at)
+    form.querySelector('[name=ends_at]').value = toLocalInputValue(event.ends_at)
+    const box = form.querySelector(`[name=venue_ids][value="${event.venue_id}"]`)
+    if (box) box.checked = true
+  })
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
     const errorEl = container.querySelector('#campaign-error')
@@ -158,6 +189,7 @@ function wireForm(container, offers) {
 
     const payload = {
       offer_id: offerId,
+      event_id: fd.get('event_id') || null,
       vendor_id: offer?.vendor_id,
       name: fd.get('name') || null,
       starts_at: new Date(fd.get('starts_at')).toISOString(),
@@ -183,6 +215,12 @@ function wireForm(container, offers) {
 function fillForm(container, campaign) {
   editingId = campaign.id
   const form = container.querySelector('#campaign-form')
+  const eventSelect = form.querySelector('[name=event_id]')
+  if (campaign.event_id && !eventSelect.querySelector(`option[value="${campaign.event_id}"]`)) {
+    const linked = allEvents.find((e) => e.id === campaign.event_id)
+    if (linked) eventSelect.insertAdjacentHTML('beforeend', `<option value="${linked.id}">${escapeHtml(eventLabel(linked))}</option>`)
+  }
+  eventSelect.value = campaign.event_id ?? ''
   form.querySelector('[name=offer_id]').value = campaign.offer_id ?? ''
   form.querySelector('[name=name]').value = campaign.name ?? ''
   form.querySelector('[name=starts_at]').value = toLocalInputValue(campaign.starts_at)

@@ -306,3 +306,36 @@ kept in sync is **Supabase → Authentication → URL Configuration**: Site URL
 `/admin` and `/scan` on `hothandbuys.us` (password-reset and vendor-invite
 links are rejected otherwise). Sessions are per-origin, so the admin has to
 sign in again the first time on a new domain.
+
+---
+
+## Slots, house ads, events (admin)
+
+Schema from the house-ads / airports-and-events migrations, now editable in
+the admin:
+
+- **Offers:** `placement` (`feed` = a deal card, counts against the venue's
+  slot cap; `utility` = on-site help, shown in the fan page's "Need help?"
+  strip, never counted), `sort_weight` (100 = paid top spot), 
+  `token_valid_hours` (blank = token expires with the campaign), 
+  `redeem_offsite`.
+- **Vendors:** `is_house` — own businesses; fill unsold slots, bumped by any
+  paying vendor.
+- **Venues:** `mode` (`event` | `always_on`), `slot_limit` (1–30),
+  `open_hour`/`close_hour` (always-on only; close is inclusive; overnight
+  windows don't work because `get_live_offers` uses `BETWEEN`; both or
+  neither), `timezone` (validated client-side — a bad name would error the
+  whole fan-page query).
+- **Events** tab: venue + window + doors + expected attendance + active.
+  Campaigns can link to one; picking it prefills the campaign's times and
+  ticks the event's venue. `slot_availability` only counts a campaign under
+  an event when the campaign is linked to it AND runs at that venue.
+- **Dashboard** (landing tab): reads `slot_availability` — sold/open/house
+  filling/revenue, soonest event first. No grand-total revenue on purpose:
+  the view counts a campaign's full price once per venue it runs at.
+
+Pending in the database (files exist, not applied — they change production
+and need an explicit go-ahead): `017` restores `stakes`/`proof`/`action`/
+`video_seconds` to `get_live_offers`; `018` revokes `anon` access to
+`slot_availability`, `recent_activity` and `token_integrity` (they were
+publicly readable through the REST API).

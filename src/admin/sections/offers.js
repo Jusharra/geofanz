@@ -140,10 +140,28 @@ export async function renderOffersSection(container) {
           </div>
 
           <div>
+            <label class="field-label" for="placement">Placement</label>
+            <select id="placement" name="placement" class="field-select">
+              <option value="feed">Feed</option>
+              <option value="utility">Utility</option>
+            </select>
+            <p class="field-hint">Utility = on-site help like roadside. Always visible, doesn't use a slot.</p>
+          </div>
+          <div>
             <label class="field-label" for="sort_weight">Sort weight</label>
             <input id="sort_weight" name="sort_weight" type="number" step="1" value="0" inputmode="numeric" class="field-input" />
             <p class="field-hint">100 = paid top spot, 0 = normal.</p>
           </div>
+          <div>
+            <label class="field-label" for="token_valid_hours">Token valid hours (optional)</label>
+            <input id="token_valid_hours" name="token_valid_hours" type="number" step="1" min="1" inputmode="numeric" placeholder="Blank = expires with the campaign" class="field-input" />
+            <p class="field-hint">Blank = expires with the campaign. 72 = redeemable offsite for 3 days.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" name="redeem_offsite" />
+            <span class="track"><span class="thumb"></span></span>
+            <span class="text-sm">Redeemable offsite</span>
+          </label>
 
           <label class="switch">
             <input type="checkbox" name="active" checked />
@@ -175,7 +193,7 @@ function renderList(container, offers) {
       <div class="flex items-center justify-between card px-3 py-2.5">
         <div>
           <p class="font-semibold text-sm">${escapeHtml(o.headline)} ${o.active ? '' : '<span class="text-white/30">(inactive)</span>'}</p>
-          <p class="text-xs text-white/40">${escapeHtml(o.vendors?.dba_name ?? '—')} · ${o.offer_type}${o.video_url ? ` · 🎬 ${o.video_source}` : ''} · ${
+          <p class="text-xs text-white/40">${escapeHtml(o.vendors?.dba_name ?? '—')} · ${o.offer_type}${o.video_url ? ` · 🎬 ${o.video_source}` : ''}${o.placement === 'utility' ? ' · <span class="text-live font-semibold">utility</span>' : ''} · ${
             o.sort_weight > 0
               ? `<span class="text-hot font-bold" title="Boosted: sorts above normal offers">▲ weight ${o.sort_weight}</span>`
               : 'weight 0'
@@ -323,6 +341,14 @@ function wireForm(container) {
       return
     }
 
+    // Optional whole number of hours; blank = tokens expire with the campaign.
+    const rawHours = String(fd.get('token_valid_hours') ?? '').trim()
+    const tokenHours = rawHours === '' ? null : Number(rawHours)
+    if (tokenHours !== null && (!Number.isInteger(tokenHours) || tokenHours < 1)) {
+      errorEl.textContent = 'Token valid hours has to be a whole number of 1 or more, or blank (blank = expires with the campaign).'
+      return
+    }
+
     const payload = {
       vendor_id: fd.get('vendor_id'),
       headline: fd.get('headline'),
@@ -334,7 +360,10 @@ function wireForm(container) {
       action: fd.get('action'),
       cta_url: fd.get('cta_url') || null,
       media_url: fd.get('media_url') || null,
+      placement: fd.get('placement') === 'utility' ? 'utility' : 'feed',
       sort_weight: sortWeight,
+      token_valid_hours: tokenHours,
+      redeem_offsite: fd.get('redeem_offsite') === 'on',
       active: fd.get('active') === 'on',
       video_source: isVideo ? fd.get('video_source') : null,
       video_url: isVideo ? fd.get('video_url') || null : null,
@@ -367,7 +396,10 @@ function fillForm(container, offer) {
   form.querySelector('[name=action]').value = offer.action ?? ''
   form.querySelector('[name=cta_url]').value = offer.cta_url ?? ''
   form.querySelector('[name=media_url]').value = offer.media_url ?? ''
+  form.querySelector('[name=placement]').value = offer.placement ?? 'feed'
   form.querySelector('[name=sort_weight]').value = offer.sort_weight ?? 0
+  form.querySelector('[name=token_valid_hours]').value = offer.token_valid_hours ?? ''
+  form.querySelector('[name=redeem_offsite]').checked = !!offer.redeem_offsite
   form.querySelector('[name=active]').checked = !!offer.active
   form.querySelector('[name=video_source]').value = offer.video_source ?? 'embed'
   form.querySelector('[name=video_url]').value = offer.video_url ?? ''

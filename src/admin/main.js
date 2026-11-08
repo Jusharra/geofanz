@@ -10,6 +10,8 @@ import {
   getCurrentUser,
 } from './lib/auth.js'
 import { renderVenuesSection, destroyVenuesMap } from './sections/venues.js'
+import { renderDashboardSection } from './sections/dashboard.js'
+import { renderEventsSection } from './sections/events.js'
 import { renderVendorsSection } from './sections/vendors.js'
 import { renderOffersSection } from './sections/offers.js'
 import { renderCampaignsSection } from './sections/campaigns.js'
@@ -24,7 +26,9 @@ import { getMyVendorUser } from '../lib/vendorUser.js'
 const root = document.getElementById('admin-app')
 
 const TABS = [
+  { id: 'dashboard', label: 'Dashboard', render: renderDashboardSection },
   { id: 'venues', label: 'Venues', render: renderVenuesSection },
+  { id: 'events', label: 'Events', render: renderEventsSection },
   { id: 'vendors', label: 'Vendors', render: renderVendorsSection },
   { id: 'offers', label: 'Offers', render: renderOffersSection },
   { id: 'campaigns', label: 'Campaigns', render: renderCampaignsSection },

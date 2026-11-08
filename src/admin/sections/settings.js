@@ -4,7 +4,9 @@ import { escapeHtml } from '../lib/dom.js'
 import { toastSuccess, toastError } from '../lib/toast.js'
 
 const LANDING_TABS = [
+  { id: 'dashboard', label: 'Dashboard' },
   { id: 'venues', label: 'Venues' },
+  { id: 'events', label: 'Events' },
   { id: 'vendors', label: 'Vendors' },
   { id: 'offers', label: 'Offers' },
   { id: 'campaigns', label: 'Campaigns' },

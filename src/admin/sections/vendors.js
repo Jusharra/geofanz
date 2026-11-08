@@ -59,6 +59,11 @@ export async function renderVendorsSection(container) {
             <p class="field-hint">Needs an email above. You can always send one on demand from Reports.</p>
           </div>
           <label class="switch">
+            <input type="checkbox" name="is_house" />
+            <span class="track"><span class="thumb"></span></span>
+            <span class="text-sm">House vendor (fills unsold slots, bumped by paying vendors)</span>
+          </label>
+          <label class="switch">
             <input type="checkbox" name="active" checked />
             <span class="track"><span class="thumb"></span></span>
             <span class="text-sm">Active</span>
@@ -88,7 +93,7 @@ function renderList(container, vendors) {
       <div class="flex items-center justify-between card px-3 py-2.5">
         <div>
           <p class="font-semibold text-sm">${escapeHtml(v.dba_name)} ${v.active ? '' : '<span class="text-white/30">(inactive)</span>'}</p>
-          <p class="text-xs text-white/40">${v.billing_status} · ${escapeHtml(v.city ?? '')}${v.report_frequency && v.report_frequency !== 'none' ? ` · ${v.report_frequency} reports` : ''}</p>
+          <p class="text-xs text-white/40">${v.billing_status} · ${escapeHtml(v.city ?? '')}${v.report_frequency && v.report_frequency !== 'none' ? ` · ${v.report_frequency} reports` : ''}${v.is_house ? ' · <span class="text-live font-semibold">house</span>' : ''}</p>
         </div>
         <div class="flex gap-2 shrink-0">
           <button data-edit="${v.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Edit</button>
@@ -131,6 +136,7 @@ function wireForm(container) {
       city: fd.get('city') || null,
       billing_status: fd.get('billing_status'),
       report_frequency: fd.get('report_frequency'),
+      is_house: fd.get('is_house') === 'on',
       active: fd.get('active') === 'on',
     }
     if (editingId) payload.id = editingId
@@ -156,6 +162,7 @@ function fillForm(container, vendor) {
   form.querySelector('[name=city]').value = vendor.city ?? ''
   form.querySelector('[name=billing_status]').value = vendor.billing_status ?? 'trial'
   form.querySelector('[name=report_frequency]').value = vendor.report_frequency ?? 'none'
+  form.querySelector('[name=is_house]').checked = !!vendor.is_house
   form.querySelector('[name=active]').checked = !!vendor.active
 }
 

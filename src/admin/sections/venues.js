@@ -95,6 +95,42 @@ export async function renderVenuesSection(container, user) {
             <p class="field-hint">Up to 2 miles (3,219m).</p>
           </div>
 
+          <div class="rounded-xl border border-white/10 p-3 space-y-4">
+            <p class="text-xs font-bold uppercase tracking-wide text-hot">When it's live &amp; how many offers</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="field-label" for="v-mode">Mode</label>
+                <select id="v-mode" name="mode" class="field-select">
+                  <option value="event">Event</option>
+                  <option value="always_on">Always on</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label" for="v-slots">Slot limit</label>
+                <input id="v-slots" name="slot_limit" type="number" step="1" min="1" max="30" value="10" inputmode="numeric" class="field-input" />
+              </div>
+            </div>
+            <p class="field-hint -mt-2">Event = offers run in their campaign window. Always on = offers also have to fall inside the open hours below. Slot limit is how many offers a visitor sees at once (1–30).</p>
+
+            <div id="hours-fields" class="hidden grid grid-cols-2 gap-3">
+              <div>
+                <label class="field-label" for="v-open">Open hour (0–23)</label>
+                <input id="v-open" name="open_hour" type="number" step="1" min="0" max="23" inputmode="numeric" placeholder="e.g. 6" class="field-input" />
+              </div>
+              <div>
+                <label class="field-label" for="v-close">Close hour (0–23)</label>
+                <input id="v-close" name="close_hour" type="number" step="1" min="0" max="23" inputmode="numeric" placeholder="e.g. 22" class="field-input" />
+              </div>
+              <p class="field-hint col-span-2 -mt-2">Close hour is inclusive: 22 stays open until 10:59 PM. Leave both blank for open all day. Overnight windows (open later than close) aren't supported.</p>
+            </div>
+
+            <div>
+              <label class="field-label" for="v-tz">Timezone</label>
+              <input id="v-tz" name="timezone" value="America/Los_Angeles" autocomplete="off" spellcheck="false" class="field-input" />
+              <p class="field-hint">Used for the open hours. Fresno is America/Los_Angeles.</p>
+            </div>
+          </div>
+
           <div class="flex gap-2 pt-2">
             <button type="submit" class="btn-primary">Save venue</button>
             <button type="button" id="venue-cancel" class="btn-secondary">Cancel</button>
@@ -122,7 +158,7 @@ function renderVenueList(container, venues) {
       <div class="flex items-center justify-between card px-3 py-2.5">
         <div>
           <p class="font-semibold text-sm">${escapeHtml(v.name)} ${v.active ? '' : '<span class="text-white/30">(inactive)</span>'}</p>
-          <p class="text-xs text-white/40">${v.venue_type} · ${formatDistance(v.radius_meters)} · ${escapeHtml(v.city ?? '')}</p>
+          <p class="text-xs text-white/40">${v.venue_type} · ${formatDistance(v.radius_meters)} · ${escapeHtml(v.city ?? '')} · ${v.mode === 'always_on' ? 'always on' : 'event'} · ${v.slot_limit ?? 10} slots</p>
         </div>
         <div class="flex gap-2 shrink-0">
           <button data-edit="${v.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Edit</button>
@@ -224,8 +260,39 @@ function readCoordinates(latRaw, lngRaw) {
   return { lat, lng }
 }
 
+// Hours only mean something for an always-on venue.
+function toggleHoursFields(container) {
+  const mode = container.querySelector('[name=mode]').value
+  container.querySelector('#hours-fields').classList.toggle('hidden', mode !== 'always_on')
+}
+
+// Everything get_live_offers does with these columns, checked up front so a
+// bad value is a clear message here instead of an empty or broken fan page.
+function scheduleProblem({ mode, slotLimit, openHour, closeHour, timezone }) {
+  if (!Number.isInteger(slotLimit) || slotLimit < 1 || slotLimit > 30) {
+    return 'Slot limit has to be a whole number from 1 to 30.'
+  }
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone })
+  } catch {
+    return `"${timezone}" isn't a timezone I recognize. Use a name like America/Los_Angeles.`
+  }
+  if (mode === 'always_on') {
+    const hourOk = (h) => h === null || (Number.isInteger(h) && h >= 0 && h <= 23)
+    if (!hourOk(openHour) || !hourOk(closeHour)) return 'Open and close hours have to be whole numbers from 0 to 23.'
+    if ((openHour === null) !== (closeHour === null)) {
+      return 'Set both an open hour and a close hour, or leave both blank for open all day.'
+    }
+    if (openHour !== null && openHour > closeHour) {
+      return "Open hour has to be earlier than close hour. Overnight windows (like 22 to 2) aren't supported yet."
+    }
+  }
+  return null
+}
+
 function wireForm(container) {
   const form = container.querySelector('#venue-form')
+  form.querySelector('[name=mode]').addEventListener('change', () => toggleHoursFields(container))
   const radiusInput = form.querySelector('[name=radius_meters]')
   const radiusValue = container.querySelector('#radius-value')
   radiusInput.addEventListener('input', () => {
@@ -267,6 +334,22 @@ function wireForm(container) {
       toastError(problem)
       return
     }
+    const mode = fd.get('mode') === 'always_on' ? 'always_on' : 'event'
+    const hourOf = (v) => (String(v ?? '').trim() === '' ? null : Number(v))
+    const schedule = {
+      mode,
+      slotLimit: Number(String(fd.get('slot_limit') ?? '').trim() || NaN),
+      openHour: hourOf(fd.get('open_hour')),
+      closeHour: hourOf(fd.get('close_hour')),
+      timezone: String(fd.get('timezone') ?? '').trim() || 'America/Los_Angeles',
+    }
+    const scheduleErr = scheduleProblem(schedule)
+    if (scheduleErr) {
+      errorEl.textContent = scheduleErr
+      toastError(scheduleErr)
+      return
+    }
+
     const payload = {
       name: fd.get('name'),
       description: fd.get('description') || null,
@@ -277,6 +360,12 @@ function wireForm(container) {
       latitude: lat,
       longitude: lng,
       radius_meters: Number(fd.get('radius_meters')),
+      mode,
+      slot_limit: schedule.slotLimit,
+      timezone: schedule.timezone,
+      // Hours only apply to always-on venues; don't leave stale ones behind.
+      open_hour: mode === 'always_on' ? schedule.openHour : null,
+      close_hour: mode === 'always_on' ? schedule.closeHour : null,
     }
     if (editingId) payload.id = editingId
 
@@ -304,6 +393,12 @@ function fillForm(container, venue) {
   form.querySelector('[name=longitude]').value = venue.longitude
   form.querySelector('[name=radius_meters]').value = venue.radius_meters
   container.querySelector('#radius-value').textContent = formatDistance(venue.radius_meters)
+  form.querySelector('[name=mode]').value = venue.mode ?? 'event'
+  form.querySelector('[name=slot_limit]').value = venue.slot_limit ?? 10
+  form.querySelector('[name=open_hour]').value = venue.open_hour ?? ''
+  form.querySelector('[name=close_hour]').value = venue.close_hour ?? ''
+  form.querySelector('[name=timezone]').value = venue.timezone ?? 'America/Los_Angeles'
+  toggleHoursFields(container)
 
   marker.setLatLng([venue.latitude, venue.longitude])
   circle.setLatLng([venue.latitude, venue.longitude])
@@ -325,6 +420,7 @@ function resetForm(container) {
   form.reset()
   form.querySelector('[name=radius_meters]').value = 800
   container.querySelector('#radius-value').textContent = formatDistance(800)
+  toggleHoursFields(container)
   if (marker) {
     marker.setLatLng([FRESNO.lat, FRESNO.lng])
     circle.setLatLng([FRESNO.lat, FRESNO.lng])

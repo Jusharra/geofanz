@@ -33,6 +33,28 @@ export async function deleteVendor(id) {
   check(await supabase.from('vendors').delete().eq('id', id))
 }
 
+// ---------- events ----------
+
+export async function listEvents() {
+  return check(
+    await supabase.from('events').select('*, venues(name)').order('starts_at', { ascending: true })
+  )
+}
+
+export async function upsertEvent(event) {
+  return check(await supabase.from('events').upsert(event).select().single())
+}
+
+export async function deleteEvent(id) {
+  check(await supabase.from('events').delete().eq('id', id))
+}
+
+// Sold / open / house-filling / revenue per venue + event. Internal: it
+// carries revenue, so it only ever renders in the admin.
+export async function listSlotAvailability() {
+  return check(await supabase.from('slot_availability').select('*'))
+}
+
 // ---------- offers ----------
 
 export async function listOffers() {
